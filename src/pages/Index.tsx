@@ -1,14 +1,81 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from "react";
+import { MainMenu } from "@/components/layout/MainMenu";
+import { NarratorMode } from "@/components/modes/NarratorMode";
+import { PlayerMode } from "@/components/modes/PlayerMode";
+import { DiceMode } from "@/components/modes/DiceMode";
+
+type AppMode = 'menu' | 'narrator' | 'player' | 'dice' | 'shop' | 'characters' | 'combat';
 
 const Index = () => {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
-    </div>
-  );
+  const [currentMode, setCurrentMode] = useState<AppMode>('menu');
+
+  const handleModeSelect = (mode: AppMode) => {
+    setCurrentMode(mode);
+  };
+
+  const handleBackToMenu = () => {
+    setCurrentMode('menu');
+  };
+
+  const renderCurrentMode = () => {
+    switch (currentMode) {
+      case 'narrator':
+        return <NarratorMode onBack={handleBackToMenu} />;
+      case 'player':
+        return <PlayerMode onBack={handleBackToMenu} />;
+      case 'dice':
+        return <DiceMode onBack={handleBackToMenu} />;
+      case 'shop':
+        return (
+          <div className="min-h-screen bg-background flex items-center justify-center">
+            <div className="text-center">
+              <h1 className="text-4xl font-bold text-primary mb-4">Tienda Épica</h1>
+              <p className="text-xl text-muted-foreground mb-4">¡Próximamente!</p>
+              <button 
+                onClick={handleBackToMenu}
+                className="text-accent hover:text-accent/80 underline"
+              >
+                Volver al Menú
+              </button>
+            </div>
+          </div>
+        );
+      case 'characters':
+        return (
+          <div className="min-h-screen bg-background flex items-center justify-center">
+            <div className="text-center">
+              <h1 className="text-4xl font-bold text-accent mb-4">Gestión de Personajes</h1>
+              <p className="text-xl text-muted-foreground mb-4">¡Próximamente!</p>
+              <button 
+                onClick={handleBackToMenu}
+                className="text-accent hover:text-accent/80 underline"
+              >
+                Volver al Menú
+              </button>
+            </div>
+          </div>
+        );
+      case 'combat':
+        return (
+          <div className="min-h-screen bg-background flex items-center justify-center">
+            <div className="text-center">
+              <h1 className="text-4xl font-bold text-destructive mb-4">Sistema de Combate</h1>
+              <p className="text-xl text-muted-foreground mb-4">¡Próximamente!</p>
+              <button 
+                onClick={handleBackToMenu}
+                className="text-accent hover:text-accent/80 underline"
+              >
+                Volver al Menú
+              </button>
+            </div>
+          </div>
+        );
+      default:
+        return <MainMenu onModeSelect={handleModeSelect} />;
+    }
+  };
+
+  return <>{renderCurrentMode()}</>;
 };
 
 export default Index;

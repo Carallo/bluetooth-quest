@@ -26,7 +26,8 @@ export default {
 				foreground: 'hsl(var(--foreground))',
 				primary: {
 					DEFAULT: 'hsl(var(--primary))',
-					foreground: 'hsl(var(--primary-foreground))'
+					foreground: 'hsl(var(--primary-foreground))',
+					glow: 'hsl(var(--primary-glow))'
 				},
 				secondary: {
 					DEFAULT: 'hsl(var(--secondary))',
@@ -84,11 +85,43 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'glow-pulse': {
+					'0%, 100%': {
+						boxShadow: '0 0 20px hsl(var(--primary) / 0.4)'
+					},
+					'50%': {
+						boxShadow: '0 0 40px hsl(var(--primary) / 0.8)'
+					}
+				},
+				'epic-bounce': {
+					'0%, 20%, 53%, 80%, 100%': {
+						transform: 'translateY(0px)'
+					},
+					'40%, 43%': {
+						transform: 'translateY(-15px)'
+					}
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'glow-pulse': 'glow-pulse 2s ease-in-out infinite',
+				'epic-bounce': 'epic-bounce 2s ease-in-out infinite'
+			},
+			backgroundImage: {
+				'gradient-epic': 'var(--gradient-primary)',
+				'gradient-medieval': 'var(--gradient-medieval)',
+				'gradient-blood': 'var(--gradient-blood)'
+			},
+			boxShadow: {
+				'epic': 'var(--shadow-epic)',
+				'dark': 'var(--shadow-dark)',
+				'glow': 'var(--shadow-glow)'
+			},
+			transitionTimingFunction: {
+				'epic': 'var(--transition-epic)',
+				'bounce': 'var(--transition-bounce)'
 			}
 		}
 	},
