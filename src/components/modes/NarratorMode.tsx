@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { EpicButton } from "@/components/ui/epic-button";
 import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { BestiaryList } from "@/components/bestiary/BestiaryList";
+import { type Creature } from "@/data/bestiary";
 import { ArrowLeft, Plus, Download, QrCode, Flame } from "lucide-react";
 
 interface NarratorModeProps {
@@ -9,6 +13,18 @@ interface NarratorModeProps {
 
 export const NarratorMode = ({ onBack }: NarratorModeProps) => {
   const [activeTab, setActiveTab] = useState<'npcs' | 'bestiary' | 'combat'>('npcs');
+  const [selectedCreatures, setSelectedCreatures] = useState<Creature[]>([]);
+
+  const handleCreatureSelect = (creature: Creature) => {
+    setSelectedCreatures(prev => {
+      const isSelected = prev.some(c => c.id === creature.id);
+      if (isSelected) {
+        return prev.filter(c => c.id !== creature.id);
+      } else {
+        return [...prev, creature];
+      }
+    });
+  };
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -127,30 +143,32 @@ export const NarratorMode = ({ onBack }: NarratorModeProps) => {
       )}
 
       {activeTab === 'bestiary' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Criaturas del bestiario */}
-          {[
-            { name: "Goblin", hp: 7, ac: 15, cr: "1/4" },
-            { name: "Orco", hp: 15, ac: 13, cr: "1/2" },
-            { name: "Esqueleto", hp: 13, ac: 13, cr: "1/4" },
-            { name: "Lobo", hp: 11, ac: 13, cr: "1/4" },
-            { name: "Oso", hp: 19, ac: 11, cr: "1/2" },
-            { name: "Dragón Joven", hp: 178, ac: 18, cr: "9" },
-          ].map((creature, index) => (
-            <Card key={index} className="p-4 bg-gradient-medieval border-primary/30 hover:border-primary transition-epic group cursor-pointer">
-              <div className="text-center">
-                <Flame className="w-8 h-8 text-primary mx-auto mb-2 group-hover:animate-epic-bounce" />
-                <h4 className="font-bold text-foreground">{creature.name}</h4>
-                <p className="text-sm text-muted-foreground">
-                  HP: {creature.hp} | AC: {creature.ac} | CR: {creature.cr}
-                </p>
-                <EpicButton variant="outline" size="sm" className="mt-2 w-full">
-                  Seleccionar
-                </EpicButton>
+        <Card className="p-6">
+          <h2 className="text-2xl font-bold text-primary mb-4">Bestiario Épico</h2>
+          <p className="text-muted-foreground mb-6">
+            Selecciona criaturas para tu encuentro. Puedes elegir múltiples enemigos.
+          </p>
+          
+          <BestiaryList 
+            onSelectCreature={handleCreatureSelect}
+            selectedCreatures={selectedCreatures}
+          />
+          
+          {selectedCreatures.length > 0 && (
+            <div className="mt-6 p-4 bg-primary/10 rounded-lg border border-primary/30">
+              <h3 className="font-bold text-primary mb-2">
+                Criaturas Seleccionadas ({selectedCreatures.length})
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {selectedCreatures.map((creature, index) => (
+                  <Badge key={`${creature.id}-${index}`} variant="outline" className="text-primary">
+                    {creature.name}
+                  </Badge>
+                ))}
               </div>
-            </Card>
-          ))}
-        </div>
+            </div>
+          )}
+        </Card>
       )}
 
       {activeTab === 'combat' && (
