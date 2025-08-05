@@ -3,6 +3,7 @@ import { MainMenu } from "@/components/layout/MainMenu";
 import { NarratorMode } from "@/components/modes/NarratorMode";
 import { PlayerMode } from "@/components/modes/PlayerMode";
 import { DiceMode } from "@/components/modes/DiceMode";
+import { ShopMode } from "@/components/modes/ShopMode";
 
 type AppMode = 'menu' | 'narrator' | 'player' | 'dice' | 'shop' | 'characters' | 'combat';
 
@@ -26,20 +27,7 @@ const Index = () => {
       case 'dice':
         return <DiceMode onBack={handleBackToMenu} />;
       case 'shop':
-        return (
-          <div className="min-h-screen bg-background flex items-center justify-center">
-            <div className="text-center">
-              <h1 className="text-4xl font-bold text-primary mb-4">Tienda Épica</h1>
-              <p className="text-xl text-muted-foreground mb-4">¡Próximamente!</p>
-              <button 
-                onClick={handleBackToMenu}
-                className="text-accent hover:text-accent/80 underline"
-              >
-                Volver al Menú
-              </button>
-            </div>
-          </div>
-        );
+        return <ShopMode mode="player" onBack={handleBackToMenu} />;
       case 'characters':
         return (
           <div className="min-h-screen bg-background flex items-center justify-center">
