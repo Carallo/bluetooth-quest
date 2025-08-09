@@ -7,6 +7,7 @@ import { ShopInterface } from "@/components/shop/ShopInterface";
 import { CombatInterface } from "@/components/combat/CombatInterface";
 import { CampaignManager } from "@/components/campaign/CampaignManager";
 import { bestiary } from "@/data/bestiary";
+import type { Creature } from "@/data/bestiary";
 
 interface NarratorModeProps {
   onBack: () => void;
@@ -16,6 +17,18 @@ type NarratorView = 'menu' | 'bestiary' | 'shop' | 'combat' | 'campaigns';
 
 export const NarratorMode = ({ onBack }: NarratorModeProps) => {
   const [currentView, setCurrentView] = useState<NarratorView>('menu');
+  const [selectedCreatures, setSelectedCreatures] = useState<Creature[]>([]);
+
+  const handleSelectCreature = (creature: Creature) => {
+    setSelectedCreatures(prev => {
+      const isSelected = prev.find(c => c.name === creature.name);
+      if (isSelected) {
+        return prev.filter(c => c.name !== creature.name);
+      } else {
+        return [...prev, creature];
+      }
+    });
+  };
 
   const renderCurrentView = () => {
     switch (currentView) {
@@ -26,7 +39,10 @@ export const NarratorMode = ({ onBack }: NarratorModeProps) => {
               <ArrowLeft className="w-5 h-5" />
               Volver
             </EpicButton>
-            <BestiaryList />
+            <BestiaryList 
+              onSelectCreature={handleSelectCreature}
+              selectedCreatures={selectedCreatures}
+            />
           </div>
         );
       case 'shop':
