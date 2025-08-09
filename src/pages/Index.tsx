@@ -5,9 +5,10 @@ import { PlayerMode } from "@/components/modes/PlayerMode";
 import { DiceMode } from "@/components/modes/DiceMode";
 import { ShopMode } from "@/components/modes/ShopMode";
 import { CombatInterface } from "@/components/combat/CombatInterface";
+import { BluetoothManager } from "@/components/mobile/BluetoothManager";
 import { bestiary } from "@/data/bestiary";
 
-type AppMode = 'menu' | 'narrator' | 'player' | 'dice' | 'shop' | 'characters' | 'combat';
+type AppMode = 'menu' | 'narrator' | 'player' | 'dice' | 'shop' | 'characters' | 'combat' | 'bluetooth';
 
 const Index = () => {
   const [currentMode, setCurrentMode] = useState<AppMode>('menu');
@@ -34,6 +35,15 @@ const Index = () => {
         return <PlayerMode onBack={handleBackToMenu} />;
       case 'combat':
         return <CombatInterface characters={[]} monsters={bestiary} onBack={handleBackToMenu} />;
+      case 'bluetooth':
+        return (
+          <div className="min-h-screen bg-background p-4">
+            <div className="max-w-2xl mx-auto">
+              <h1 className="text-3xl font-bold mb-6">Gestión Bluetooth</h1>
+              <BluetoothManager />
+            </div>
+          </div>
+        );
       default:
         return <MainMenu onModeSelect={handleModeSelect} />;
     }
