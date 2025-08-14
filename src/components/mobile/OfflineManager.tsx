@@ -16,10 +16,15 @@ import {
   Settings,
   Wifi,
   WifiOff,
-  Bluetooth
+  Bluetooth,
+  ArrowLeft
 } from "lucide-react";
 
-export const OfflineManager = () => {
+interface OfflineManagerProps {
+  onBack?: () => void;
+}
+
+export const OfflineManager = ({ onBack }: OfflineManagerProps) => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const { data, exportData, importData, clearAllData } = useOfflineData();
   const { shareDataViaBluetooth, isConnected } = useBluetooth();
@@ -115,6 +120,13 @@ export const OfflineManager = () => {
 
   return (
     <div className="space-y-6">
+      {/* Botón de volver */}
+      {onBack && (
+        <EpicButton onClick={onBack} variant="outline" className="mb-4">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Volver al Menú
+        </EpicButton>
+      )}
       {/* Estado de conexión */}
       <Card>
         <CardHeader>

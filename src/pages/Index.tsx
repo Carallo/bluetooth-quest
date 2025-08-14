@@ -50,7 +50,7 @@ const Index = () => {
           <div className="min-h-screen bg-background p-4">
             <div className="max-w-2xl mx-auto">
               <h1 className="text-3xl font-bold mb-6">Gestión Offline</h1>
-              <OfflineManager />
+              <OfflineManager onBack={handleBackToMenu} />
             </div>
           </div>
         );
