@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Crown, Sword, Dice6, ShoppingCart, Users, FileDown, Bluetooth } from "lucide-react";
 
 interface MainMenuProps {
-  onModeSelect: (mode: 'narrator' | 'player' | 'dice' | 'shop' | 'characters' | 'combat' | 'bluetooth') => void;
+  onModeSelect: (mode: 'narrator' | 'player' | 'dice' | 'shop' | 'characters' | 'combat' | 'bluetooth' | 'offline') => void;
 }
 
 export const MainMenu = ({ onModeSelect }: MainMenuProps) => {
@@ -107,16 +107,16 @@ export const MainMenu = ({ onModeSelect }: MainMenuProps) => {
           </div>
         </Card>
 
-        {/* Bluetooth */}
+        {/* Gestión Offline */}
         <Card className="p-6 bg-gradient-medieval border-blue-500/30 hover:border-blue-500 transition-epic group cursor-pointer">
-          <div onClick={() => onModeSelect('bluetooth')} className="text-center">
+          <div onClick={() => onModeSelect('offline')} className="text-center">
             <Bluetooth className="w-12 h-12 text-blue-500 mx-auto mb-4 group-hover:animate-epic-bounce" />
-            <h3 className="text-xl font-bold text-blue-500 mb-2">Bluetooth</h3>
+            <h3 className="text-xl font-bold text-blue-500 mb-2">Gestión Offline</h3>
             <p className="text-muted-foreground mb-4">
-              Compartir datos vía Bluetooth
+              Datos locales y comunicación Bluetooth
             </p>
             <EpicButton variant="outline" className="w-full">
-              Gestionar Bluetooth
+              Gestionar Datos
             </EpicButton>
           </div>
         </Card>

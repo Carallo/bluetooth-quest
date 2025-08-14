@@ -58,9 +58,11 @@ npx cap open ios
 
 ## 🛠️ Funcionalidades Móviles Implementadas
 
-### ✅ Almacenamiento Local
-- **Hook**: `useLocalStorage` para persistencia offline
-- **Datos guardados**: Personajes, campañas, configuraciones
+### ✅ Almacenamiento Local Completo
+- **Hook**: `useOfflineData` para gestión completa offline
+- **Datos guardados**: Personajes, campañas, inventarios, logs de combate, configuraciones
+- **Persistencia**: Uso de Capacitor Preferences para almacenamiento nativo
+- **Gestión**: Exportación/importación, backup automático
 - **Compatibilidad**: Web y móvil nativo
 
 ### ✅ Bluetooth
@@ -76,10 +78,12 @@ npx cap open ios
 - **Cache**: QueryClient configurado para uso offline
 - **Funcionalidad**: App completamente funcional sin internet
 
-### ✅ Compartir Archivos
-- **Formato**: JSON con datos de D&D
-- **Métodos**: Bluetooth, compartir nativo del sistema
-- **Contenido**: Personajes, campañas, configuraciones
+### ✅ Gestión Offline Avanzada
+- **Formato**: JSON con datos completos de D&D
+- **Métodos**: Bluetooth LE, compartir nativo, archivos locales
+- **Contenido**: Personajes, campañas, inventarios, logs, configuraciones
+- **Funciones**: Auto-backup, detección de estado offline/online
+- **Interfaz**: Gestor dedicado con estadísticas de datos almacenados
 
 ## 📋 Permisos Android Requeridos
 
@@ -98,12 +102,19 @@ npx cap open ios
 <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 ```
 
-## 🔧 Configuración de Desarrollo
+## 🔧 Configuración de Desarrollo vs Producción
 
-### Hot Reload Móvil
-El proyecto está configurado para hot reload directo desde Lovable:
+### Desarrollo (Hot Reload)
+Para desarrollo con conexión a Lovable:
+- Mantener `server.url` en `capacitor.config.ts`
 - URL: `https://4b0923ec-74b8-456d-a7d9-1d2becc421ed.lovableproject.com`
 - Los cambios se reflejan automáticamente en el dispositivo
+
+### Producción (Completamente Offline)
+Para apps que funcionan sin internet:
+1. Comentar la sección `server` en `capacitor.config.ts`
+2. Ejecutar `npm run build` antes de `npx cap sync`
+3. La app funcionará completamente offline con datos locales
 
 ### Debugging
 ```bash

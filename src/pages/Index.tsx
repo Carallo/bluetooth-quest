@@ -6,9 +6,10 @@ import { DiceMode } from "@/components/modes/DiceMode";
 import { ShopMode } from "@/components/modes/ShopMode";
 import { CombatInterface } from "@/components/combat/CombatInterface";
 import { BluetoothManager } from "@/components/mobile/BluetoothManager";
+import { OfflineManager } from "@/components/mobile/OfflineManager";
 import { bestiary } from "@/data/bestiary";
 
-type AppMode = 'menu' | 'narrator' | 'player' | 'dice' | 'shop' | 'characters' | 'combat' | 'bluetooth';
+type AppMode = 'menu' | 'narrator' | 'player' | 'dice' | 'shop' | 'characters' | 'combat' | 'bluetooth' | 'offline';
 
 const Index = () => {
   const [currentMode, setCurrentMode] = useState<AppMode>('menu');
@@ -41,6 +42,15 @@ const Index = () => {
             <div className="max-w-2xl mx-auto">
               <h1 className="text-3xl font-bold mb-6">Gestión Bluetooth</h1>
               <BluetoothManager />
+            </div>
+          </div>
+        );
+      case 'offline':
+        return (
+          <div className="min-h-screen bg-background p-4">
+            <div className="max-w-2xl mx-auto">
+              <h1 className="text-3xl font-bold mb-6">Gestión Offline</h1>
+              <OfflineManager />
             </div>
           </div>
         );
