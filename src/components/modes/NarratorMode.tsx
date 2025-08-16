@@ -1,23 +1,26 @@
 import { useState } from "react";
 import { EpicButton } from "@/components/ui/epic-button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, BookOpen, Sword, Users, Crown } from "lucide-react";
+import { ArrowLeft, BookOpen, Sword, Users, Crown, Settings } from "lucide-react";
 import { BestiaryList } from "@/components/bestiary/BestiaryList";
 import { ShopInterface } from "@/components/shop/ShopInterface";
 import { CombatInterface } from "@/components/combat/CombatInterface";
 import { CampaignManager } from "@/components/campaign/CampaignManager";
+import { CharacterManager } from "@/components/narrator/CharacterManager";
 import { bestiary } from "@/data/bestiary";
 import type { Creature } from "@/data/bestiary";
+import type { Character } from "@/data/characters";
 
 interface NarratorModeProps {
   onBack: () => void;
 }
 
-type NarratorView = 'menu' | 'bestiary' | 'shop' | 'combat' | 'campaigns';
+type NarratorView = 'menu' | 'bestiary' | 'shop' | 'combat' | 'campaigns' | 'characters';
 
 export const NarratorMode = ({ onBack }: NarratorModeProps) => {
   const [currentView, setCurrentView] = useState<NarratorView>('menu');
   const [selectedCreatures, setSelectedCreatures] = useState<Creature[]>([]);
+  const [selectedCharacters, setSelectedCharacters] = useState<Character[]>([]);
 
   const handleSelectCreature = (creature: Creature) => {
     setSelectedCreatures(prev => {
@@ -56,9 +59,22 @@ export const NarratorMode = ({ onBack }: NarratorModeProps) => {
           </div>
         );
       case 'combat':
-        return <CombatInterface characters={[]} monsters={bestiary} onBack={() => setCurrentView('menu')} />;
+        return <CombatInterface characters={selectedCharacters} monsters={selectedCreatures.length > 0 ? selectedCreatures : bestiary} onBack={() => setCurrentView('menu')} />;
       case 'campaigns':
         return <CampaignManager onBack={() => setCurrentView('menu')} />;
+      case 'characters':
+        return (
+          <div className="min-h-screen bg-background p-4">
+            <EpicButton variant="ghost" onClick={() => setCurrentView('menu')} className="mb-4">
+              <ArrowLeft className="w-5 h-5" />
+              Volver
+            </EpicButton>
+            <CharacterManager 
+              onSelectCharacters={setSelectedCharacters}
+              selectedCharacters={selectedCharacters}
+            />
+          </div>
+        );
       default:
         return (
           <div className="min-h-screen bg-background p-4">
@@ -76,7 +92,27 @@ export const NarratorMode = ({ onBack }: NarratorModeProps) => {
               Herramientas profesionales para dirigir aventuras épicas de D&D 5e
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <Card 
+                className="p-6 bg-gradient-medieval border-secondary/30 hover:border-secondary/50 transition-all cursor-pointer group"
+                onClick={() => setCurrentView('characters')}
+              >
+                <div className="text-center">
+                  <Users className="w-12 h-12 mx-auto text-secondary mb-4 group-hover:scale-110 transition-transform" />
+                  <h3 className="text-xl font-bold text-secondary mb-2">Personajes</h3>
+                  <p className="text-muted-foreground">
+                    Gestiona personajes de jugadores
+                  </p>
+                  {selectedCharacters.length > 0 && (
+                    <div className="mt-2">
+                      <span className="text-xs bg-secondary/20 text-secondary px-2 py-1 rounded">
+                        {selectedCharacters.length} seleccionados
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </Card>
+
               <Card 
                 className="p-6 bg-gradient-medieval border-primary/30 hover:border-primary/50 transition-all cursor-pointer group"
                 onClick={() => setCurrentView('bestiary')}
@@ -87,6 +123,13 @@ export const NarratorMode = ({ onBack }: NarratorModeProps) => {
                   <p className="text-muted-foreground">
                     Explora criaturas y estadísticas
                   </p>
+                  {selectedCreatures.length > 0 && (
+                    <div className="mt-2">
+                      <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded">
+                        {selectedCreatures.length} seleccionadas
+                      </span>
+                    </div>
+                  )}
                 </div>
               </Card>
 
@@ -100,6 +143,18 @@ export const NarratorMode = ({ onBack }: NarratorModeProps) => {
                   <p className="text-muted-foreground">
                     Gestiona encuentros e iniciativa
                   </p>
+                  <div className="mt-2 flex gap-2 justify-center">
+                    {selectedCharacters.length > 0 && (
+                      <span className="text-xs bg-accent/20 text-accent px-2 py-1 rounded">
+                        {selectedCharacters.length} PJs
+                      </span>
+                    )}
+                    {selectedCreatures.length > 0 && (
+                      <span className="text-xs bg-accent/20 text-accent px-2 py-1 rounded">
+                        {selectedCreatures.length} criaturas
+                      </span>
+                    )}
+                  </div>
                 </div>
               </Card>
 
