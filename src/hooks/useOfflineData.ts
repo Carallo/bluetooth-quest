@@ -5,6 +5,8 @@ import { type Item } from '@/data/items';
 
 interface InventoryItem extends Item {
   quantity: number;
+  characterId?: string;
+  equipped?: boolean;
 }
 
 interface OfflineData {

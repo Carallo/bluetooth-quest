@@ -5,7 +5,9 @@ import { ArrowLeft, User, Plus } from "lucide-react";
 import { CharacterList } from "@/components/character/CharacterList";
 import { CharacterCreation } from "@/components/character/CharacterCreation";
 import { CharacterSheet } from "@/components/character/CharacterSheet";
+import { InventoryManager } from "@/components/character/InventoryManager";
 import { type Character } from "@/data/characters";
+import { useOfflineData } from "@/hooks/useOfflineData";
 import { useToast } from "@/hooks/use-toast";
 
 interface PlayerModeProps {
@@ -14,9 +16,11 @@ interface PlayerModeProps {
 
 export const PlayerMode = ({ onBack }: PlayerModeProps) => {
   const { toast } = useToast();
-  const [characters, setCharacters] = useState<Character[]>([]);
+  const { data, saveCharacter, deleteCharacter: removeCharacter } = useOfflineData();
   const [currentView, setCurrentView] = useState<'list' | 'create' | 'edit' | 'view'>('list');
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
+
+  const characters = data.characters;
 
   const handleCreateCharacter = () => {
     setSelectedCharacter(null);
@@ -34,24 +38,18 @@ export const PlayerMode = ({ onBack }: PlayerModeProps) => {
   };
 
   const handleSaveCharacter = (character: Character) => {
-    if (selectedCharacter) {
-      // Editing existing character
-      setCharacters(prev => prev.map(c => c.id === character.id ? character : c));
-    } else {
-      // Creating new character
-      setCharacters(prev => [...prev, character]);
-    }
+    saveCharacter(character);
     setCurrentView('list');
     setSelectedCharacter(null);
   };
 
   const handleUpdateCharacter = (character: Character) => {
-    setCharacters(prev => prev.map(c => c.id === character.id ? character : c));
+    saveCharacter(character);
     setSelectedCharacter(character);
   };
 
   const handleDeleteCharacter = (characterId: string) => {
-    setCharacters(prev => prev.filter(c => c.id !== characterId));
+    removeCharacter(characterId);
   };
 
   const handleBackToList = () => {

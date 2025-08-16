@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dice6, Plus, Minus } from "lucide-react";
+import { Dice6, Plus, Minus, Save, X } from "lucide-react";
 import { type Character, races, classes, skills, backgrounds, alignments, getStatModifier, getProficiencyBonus } from "@/data/characters";
 import { useToast } from "@/hooks/use-toast";
 
@@ -90,6 +90,30 @@ export const CharacterCreation = ({ onSave, onCancel, editingCharacter }: Charac
   const selectedClass = classes.find(c => c.name === formData.class);
   const selectedRace = races.find(r => r.name === formData.race);
 
+  const calculateHitPoints = () => {
+    const baseHp = selectedClass?.hitDie || 8;
+    const conModifier = getStatModifier(formData.stats.constitution);
+    return Math.max(1, baseHp + conModifier);
+  };
+
+  const calculateArmorClass = () => {
+    const dexModifier = getStatModifier(formData.stats.dexterity);
+    return 10 + dexModifier;
+  };
+
+  // Auto-calculate derived stats when stats change
+  useState(() => {
+    if (selectedClass && !editingCharacter) {
+      const hp = calculateHitPoints();
+      const ac = calculateArmorClass();
+      setFormData(prev => ({
+        ...prev,
+        hitPoints: { current: hp, maximum: hp, temporary: 0 },
+        armorClass: ac
+      }));
+    }
+  });
+
   const handleSave = () => {
     if (!formData.name || !formData.race || !formData.class) {
       toast({
@@ -123,6 +147,13 @@ export const CharacterCreation = ({ onSave, onCancel, editingCharacter }: Charac
       createdAt: editingCharacter?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
+
+    // Apply racial bonuses to final stats
+    if (selectedRace) {
+      Object.entries(selectedRace.bonuses).forEach(([stat, bonus]) => {
+        character.stats[stat as keyof typeof character.stats] += bonus;
+      });
+    }
 
     onSave(character);
     toast({
@@ -344,7 +375,7 @@ export const CharacterCreation = ({ onSave, onCancel, editingCharacter }: Charac
                 <Input
                   id="hp"
                   type="number"
-                  value={formData.hitPoints.maximum}
+                  value={formData.hitPoints.maximum || calculateHitPoints()}
                   onChange={(e) => setFormData(prev => ({
                     ...prev,
                     hitPoints: { 
@@ -360,7 +391,7 @@ export const CharacterCreation = ({ onSave, onCancel, editingCharacter }: Charac
                 <Input
                   id="ac"
                   type="number"
-                  value={formData.armorClass}
+                  value={formData.armorClass || calculateArmorClass()}
                   onChange={(e) => setFormData(prev => ({ ...prev, armorClass: parseInt(e.target.value) || 10 }))}
                 />
               </div>
@@ -397,6 +428,70 @@ export const CharacterCreation = ({ onSave, onCancel, editingCharacter }: Charac
             </div>
           </CardContent>
         </Card>
+
+        {/* Resumen del personaje */}
+        {formData.name && formData.race && formData.class && (
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle>Resumen del Personaje</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold text-primary">{formData.name}</h3>
+                  <p className="text-lg text-muted-foreground">
+                    {formData.race} {formData.class} - Nivel {formData.level}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="p-3 bg-muted rounded-md">
+                    <div className="text-xl font-bold text-destructive">{formData.hitPoints.maximum}</div>
+                    <div className="text-sm text-muted-foreground">Puntos de Vida</div>
+                  </div>
+                  <div className="p-3 bg-muted rounded-md">
+                    <div className="text-xl font-bold text-accent">{formData.armorClass}</div>
+                    <div className="text-sm text-muted-foreground">Clase de Armadura</div>
+                  </div>
+                  <div className="p-3 bg-muted rounded-md">
+                    <div className="text-xl font-bold text-primary">+{getProficiencyBonus(formData.level)}</div>
+                    <div className="text-sm text-muted-foreground">Bono de Competencia</div>
+                  </div>
+                </div>
+
+                {selectedRace && (
+                  <div>
+                    <h4 className="font-medium mb-2">Rasgos Raciales:</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {Object.entries(selectedRace.bonuses).map(([stat, bonus]) => (
+                        <Badge key={stat} variant="secondary">
+                          {stat === 'strength' ? 'Fuerza' :
+                           stat === 'dexterity' ? 'Destreza' :
+                           stat === 'constitution' ? 'Constitución' :
+                           stat === 'intelligence' ? 'Inteligencia' :
+                           stat === 'wisdom' ? 'Sabiduría' : 'Carisma'} +{bonus}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {selectedClass && (
+                  <div>
+                    <h4 className="font-medium mb-2">Habilidades de Clase Disponibles:</h4>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedClass.skillChoices.map(skill => (
+                        <Badge key={skill} variant="outline" className="text-xs">
+                          {skill}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

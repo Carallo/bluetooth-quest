@@ -8,9 +8,13 @@ import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Edit, Heart, Shield, Zap, Coins, Backpack, BookOpen, Swords } from "lucide-react";
+import { Edit, Heart, Shield, Zap, Coins, Backpack, BookOpen, Swords, Package } from "lucide-react";
 import { type Character, getStatModifier, getProficiencyBonus, getExperienceForLevel } from "@/data/characters";
+import { InventoryManager } from "./InventoryManager";
+import { SpellManager } from "./SpellManager";
+import { LevelUpManager } from "./LevelUpManager";
 import { useToast } from "@/hooks/use-toast";
+import { useOfflineData } from "@/hooks/useOfflineData";
 
 interface CharacterSheetProps {
   character: Character;
@@ -21,10 +25,13 @@ interface CharacterSheetProps {
 
 export const CharacterSheet = ({ character, onEdit, onUpdate, onBack }: CharacterSheetProps) => {
   const { toast } = useToast();
+  const { data, addToInventory, removeFromInventory } = useOfflineData();
   const [tempHp, setTempHp] = useState(character.hitPoints.current);
   const [tempAc, setTempAc] = useState(character.armorClass);
   const [tempGold, setTempGold] = useState(character.gold);
   const [notes, setNotes] = useState(character.notes);
+  const [inventory, setInventory] = useState(data.inventory.filter(item => item.characterId === character.id) || []);
+  const [showLevelUp, setShowLevelUp] = useState(false);
 
   const saveChanges = () => {
     const updatedCharacter = {
@@ -68,6 +75,25 @@ export const CharacterSheet = ({ character, onEdit, onUpdate, onBack }: Characte
     ((character.experience - getExperienceForLevel(character.level)) / 
      (experienceToNext - getExperienceForLevel(character.level))) * 100 : 100;
 
+  const canLevelUp = character.experience >= experienceToNext && character.level < 20;
+
+  const handleLevelUp = (updatedCharacter: Character) => {
+    onUpdate(updatedCharacter);
+    setShowLevelUp(false);
+  };
+
+  if (showLevelUp) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <LevelUpManager
+          character={character}
+          onLevelUp={handleLevelUp}
+          onClose={() => setShowLevelUp(false)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       {/* Header */}
@@ -93,11 +119,12 @@ export const CharacterSheet = ({ character, onEdit, onUpdate, onBack }: Characte
       </div>
 
       <Tabs defaultValue="stats" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="stats">Estadísticas</TabsTrigger>
           <TabsTrigger value="combat">Combate</TabsTrigger>
           <TabsTrigger value="equipment">Equipo</TabsTrigger>
           <TabsTrigger value="spells">Hechizos</TabsTrigger>
+          <TabsTrigger value="inventory">Inventario</TabsTrigger>
         </TabsList>
 
         <TabsContent value="stats" className="space-y-6">
@@ -166,11 +193,11 @@ export const CharacterSheet = ({ character, onEdit, onUpdate, onBack }: Characte
                     {character.level < 20 && (
                       <EpicButton 
                         size="sm" 
-                        onClick={levelUp}
-                        disabled={character.experience < experienceToNext}
+                        onClick={() => canLevelUp ? setShowLevelUp(true) : levelUp()}
+                        disabled={!canLevelUp}
                         className="w-full"
                       >
-                        Subir de Nivel
+                        {canLevelUp ? "¡Subir de Nivel!" : "Subir de Nivel"}
                       </EpicButton>
                     )}
                   </div>
@@ -364,31 +391,27 @@ export const CharacterSheet = ({ character, onEdit, onUpdate, onBack }: Characte
           </div>
         </TabsContent>
 
+        <TabsContent value="inventory" className="space-y-6">
+          <InventoryManager
+            characterId={character.id}
+            inventory={inventory}
+            gold={tempGold}
+            onUpdateInventory={setInventory}
+            onUpdateGold={setTempGold}
+          />
+        </TabsContent>
+
         <TabsContent value="spells" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BookOpen className="w-5 h-5" />
-                Hechizos Conocidos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {character.spells.length > 0 ? (
-                  character.spells.map((spell, index) => (
-                    <Badge key={index} variant="secondary" className="mr-2 mb-2">
-                      {spell}
-                    </Badge>
-                  ))
-                ) : (
-                  <p className="text-muted-foreground text-sm">No hay hechizos conocidos</p>
-                )}
-              </div>
-              <EpicButton variant="outline" className="w-full mt-4">
-                Gestionar Hechizos
-              </EpicButton>
-            </CardContent>
-          </Card>
+          <SpellManager
+            characterId={character.id}
+            characterLevel={character.level}
+            characterClass={character.class}
+            knownSpells={character.spells}
+            onUpdateSpells={(spells) => {
+              const updatedCharacter = { ...character, spells, updatedAt: new Date().toISOString() };
+              onUpdate(updatedCharacter);
+            }}
+          />
         </TabsContent>
       </Tabs>
     </div>

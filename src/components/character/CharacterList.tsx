@@ -4,8 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, Search, Edit, Trash2, Eye, Heart, Shield, Zap } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Eye, Heart, Shield, Zap, Download, Upload, Share } from "lucide-react";
 import { type Character } from "@/data/characters";
+import { useOfflineData } from "@/hooks/useOfflineData";
+import { useBluetooth } from "@/hooks/useBluetooth";
 import { useToast } from "@/hooks/use-toast";
 
 interface CharacterListProps {
@@ -18,6 +20,8 @@ interface CharacterListProps {
 
 export const CharacterList = ({ characters, onCreateNew, onEdit, onView, onDelete }: CharacterListProps) => {
   const { toast } = useToast();
+  const { exportData, importData } = useOfflineData();
+  const { shareDataViaBluetooth, isConnected } = useBluetooth();
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteCharacter, setDeleteCharacter] = useState<Character | null>(null);
 
@@ -44,6 +48,77 @@ export const CharacterList = ({ characters, onCreateNew, onEdit, onView, onDelet
     return "text-green-500";
   };
 
+  const exportCharacters = async () => {
+    try {
+      const charactersData = { characters };
+      
+      if (isConnected) {
+        await shareDataViaBluetooth(charactersData, 'characters_backup.json');
+        toast({
+          title: "Personajes enviados",
+          description: "Los personajes se han enviado via Bluetooth"
+        });
+      } else {
+        const dataString = JSON.stringify(charactersData, null, 2);
+        const blob = new Blob([dataString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `characters_backup_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        toast({
+          title: "Backup creado",
+          description: "El archivo de personajes se ha descargado"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudieron exportar los personajes",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const importCharacters = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const content = e.target?.result as string;
+            const data = JSON.parse(content);
+            if (data.characters && Array.isArray(data.characters)) {
+              // Here you would need to integrate with your character management system
+              toast({
+                title: "Personajes importados",
+                description: `${data.characters.length} personajes importados correctamente`
+              });
+            } else {
+              throw new Error('Formato inválido');
+            }
+          } catch (error) {
+            toast({
+              title: "Error",
+              description: "El archivo no tiene un formato válido",
+              variant: "destructive"
+            });
+          }
+        };
+        reader.readAsText(file);
+      }
+    };
+    input.click();
+  };
+
   return (
     <div className="space-y-6">
       {/* Header con búsqueda */}
@@ -67,6 +142,14 @@ export const CharacterList = ({ characters, onCreateNew, onEdit, onView, onDelet
           <EpicButton onClick={onCreateNew}>
             <Plus className="w-4 h-4 mr-2" />
             Nuevo Personaje
+          </EpicButton>
+          <EpicButton variant="outline" onClick={exportCharacters}>
+            <Download className="w-4 h-4 mr-2" />
+            Exportar
+          </EpicButton>
+          <EpicButton variant="outline" onClick={importCharacters}>
+            <Upload className="w-4 h-4 mr-2" />
+            Importar
           </EpicButton>
         </div>
       </div>

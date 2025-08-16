@@ -34,6 +34,7 @@ export interface Character {
   };
   equipment: string[];
   spells: string[];
+  inventory?: any[];
   background: string;
   alignment: string;
   gold: number;
