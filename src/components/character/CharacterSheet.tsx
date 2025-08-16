@@ -13,6 +13,7 @@ import { type Character, getStatModifier, getProficiencyBonus, getExperienceForL
 import { InventoryManager } from "./InventoryManager";
 import { SpellManager } from "./SpellManager";
 import { LevelUpManager } from "./LevelUpManager";
+import { CharacterStats } from "./CharacterStats";
 import { useToast } from "@/hooks/use-toast";
 import { useOfflineData } from "@/hooks/useOfflineData";
 
@@ -128,102 +129,7 @@ export const CharacterSheet = ({ character, onEdit, onUpdate, onBack }: Characte
         </TabsList>
 
         <TabsContent value="stats" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Estadísticas principales */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Zap className="w-5 h-5" />
-                  Atributos
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {Object.entries(character.stats).map(([stat, value]) => (
-                  <div key={stat} className="flex items-center justify-between">
-                    <Label className="font-medium">
-                      {stat === 'strength' ? 'Fuerza' :
-                       stat === 'dexterity' ? 'Destreza' :
-                       stat === 'constitution' ? 'Constitución' :
-                       stat === 'intelligence' ? 'Inteligencia' :
-                       stat === 'wisdom' ? 'Sabiduría' : 'Carisma'}
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="min-w-[50px] text-center">
-                        {value}
-                      </Badge>
-                      <Badge className="min-w-[50px] text-center">
-                        {getStatModifierText(value)}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            {/* Información del personaje */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Información</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div><strong>Trasfondo:</strong></div>
-                  <div>{character.background || "Sin definir"}</div>
-                  
-                  <div><strong>Alineamiento:</strong></div>
-                  <div>{character.alignment || "Sin definir"}</div>
-                  
-                  <div><strong>Velocidad:</strong></div>
-                  <div>{character.speed} pies</div>
-                  
-                  <div><strong>Bono de competencia:</strong></div>
-                  <div>+{character.proficiencyBonus}</div>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <Label className="text-sm font-medium">Experiencia</Label>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>{character.experience} XP</span>
-                      <span>{experienceToNext > 0 ? `${experienceToNext} XP` : 'Máximo'}</span>
-                    </div>
-                    <Progress value={experienceProgress} className="h-2" />
-                    {character.level < 20 && (
-                      <EpicButton 
-                        size="sm" 
-                        onClick={() => canLevelUp ? setShowLevelUp(true) : levelUp()}
-                        disabled={!canLevelUp}
-                        className="w-full"
-                      >
-                        {canLevelUp ? "¡Subir de Nivel!" : "Subir de Nivel"}
-                      </EpicButton>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Habilidades */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Habilidades</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {Object.entries(character.skills).filter(([_, proficient]) => proficient).map(([skill]) => (
-                    <Badge key={skill} variant="secondary" className="mr-2 mb-2">
-                      {skill}
-                    </Badge>
-                  ))}
-                  {Object.keys(character.skills).filter(skill => character.skills[skill]).length === 0 && (
-                    <p className="text-muted-foreground text-sm">No hay habilidades seleccionadas</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <CharacterStats character={character} />
 
           {/* Notas del personaje */}
           <Card>
