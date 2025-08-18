@@ -46,7 +46,7 @@ export interface Character {
     cloak?: Item;
   },
   spells: string[];
-  inventory?: any[];
+  inventory?: Item[];
   background: string;
   alignment: string;
   gold: number;

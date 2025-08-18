@@ -50,26 +50,28 @@ export const RewardSystem = ({ creatures, partySize }: RewardSystemProps) => {
   }, [creatures]);
 
   const generateRewards = () => {
+    // Gold generation can remain as a base amount of wealth from the encounter
     const bucket = getCRBucket(averageCR);
     const treasureInfo = crTreasure[bucket];
+    const gold = Math.floor(treasureInfo.gold * (0.5 + Math.random())); // Slightly less random
 
-    // Gold
-    const gold = Math.floor(treasureInfo.gold * (1 + Math.random()));
-
-    // Items
-    const generatedItems: Item[] = [];
-    const possibleItems = items.filter(i => i.rarity !== 'legendary');
-    for (let i = 0; i < treasureInfo.items; i++) {
-      if (Math.random() < treasureInfo.magicChance) {
-        const magicItems = possibleItems.filter(item => item.rarity !== 'common' && item.rarity !== 'uncommon');
-        generatedItems.push(magicItems[Math.floor(Math.random() * magicItems.length)]);
-      } else {
-        const commonItems = possibleItems.filter(item => item.rarity === 'common' || item.rarity === 'uncommon');
-        generatedItems.push(commonItems[Math.floor(Math.random() * commonItems.length)]);
+    // Item generation from creature-specific loot tables
+    const foundItemIds: string[] = [];
+    creatures.forEach(creature => {
+      if (creature.lootTable) {
+        creature.lootTable.forEach(loot => {
+          if (Math.random() < loot.dropChance) {
+            foundItemIds.push(loot.itemId);
+          }
+        });
       }
-    }
+    });
 
-    setGeneratedRewards({ xp: totalXP, gold, items: generatedItems });
+    const foundItems = foundItemIds
+      .map(id => items.find(item => item.id === id))
+      .filter((item): item is Item => item !== undefined);
+
+    setGeneratedRewards({ xp: totalXP, gold, items: foundItems });
   };
 
   const getIcon = (item: Item) => {

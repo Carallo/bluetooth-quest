@@ -1,9 +1,13 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { BleClient, BleDevice } from '@capacitor-community/bluetooth-le';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { useOfflineData } from './useOfflineData';
+
+// Publicly known service and characteristic UUIDs for the app
+const COMBAT_SERVICE_UUID = '49535343-FE7D-4AE5-8FA9-9FAFD205E455';
+const COMBAT_STATE_CHARACTERISTIC_UUID = '49535343-1E4D-4BD9-BA61-23C647249616';
 
 export interface BluetoothDevice {
   id: string;
@@ -17,6 +21,7 @@ export function useBluetooth() {
   const [isConnected, setIsConnected] = useState(false);
   const [connectedDevice, setConnectedDevice] = useState<BluetoothDevice | null>(null);
   const { importData } = useOfflineData();
+  const pollingInterval = useRef<NodeJS.Timeout | null>(null);
 
   const initializeBluetooth = useCallback(async () => {
     if (!Capacitor.isNativePlatform()) {
@@ -113,7 +118,7 @@ export function useBluetooth() {
     }
   }, [connectedDevice]);
 
-  const shareDataViaBluetooth = useCallback(async (data: any, filename: string) => {
+  const shareDataViaBluetooth = useCallback(async (data: unknown, filename: string) => {
     try {
       // Crear archivo temporal
       const jsonData = JSON.stringify(data, null, 2);
@@ -183,6 +188,67 @@ export function useBluetooth() {
     });
   }, [importData]);
 
+  // --- Funciones para Sincronización en Tiempo Real ---
+
+  const startServer = async () => {
+    if (!Capacitor.isNativePlatform()) return;
+    try {
+      await initializeBluetooth();
+      await BleClient.createBleServer();
+      await BleClient.addService(COMBAT_SERVICE_UUID, true);
+      console.log('Servidor BLE iniciado');
+    } catch (error) {
+      console.error('Error al iniciar servidor BLE:', error);
+    }
+  };
+
+  const stopServer = async () => {
+    if (!Capacitor.isNativePlatform()) return;
+    try {
+      await BleClient.closeBleServer();
+      console.log('Servidor BLE detenido');
+    } catch (error) {
+      console.error('Error al detener servidor BLE:', error);
+    }
+  };
+
+  const updateCombatState = async (state: string) => {
+    if (!Capacitor.isNativePlatform()) return;
+    try {
+      const value = new TextEncoder().encode(state);
+      await BleClient.write(COMBAT_SERVICE_UUID, COMBAT_STATE_CHARACTERISTIC_UUID, value);
+    } catch (error) {
+      console.error('Error al actualizar estado de combate:', error);
+    }
+  };
+
+  const startClient = async (deviceId: string, onUpdate: (state: string) => void) => {
+    if (!Capacitor.isNativePlatform()) return;
+    try {
+      await connectToDevice(deviceId);
+      pollingInterval.current = setInterval(async () => {
+        try {
+          const value = await BleClient.read(deviceId, COMBAT_SERVICE_UUID, COMBAT_STATE_CHARACTERISTIC_UUID);
+          const state = new TextDecoder().decode(value);
+          onUpdate(state);
+        } catch (error) {
+          console.error('Error de sondeo BLE:', error);
+        }
+      }, 2000); // Poll every 2 seconds
+    } catch (error) {
+      console.error('Error al iniciar cliente BLE:', error);
+    }
+  };
+
+  const stopClient = () => {
+    if (pollingInterval.current) {
+      clearInterval(pollingInterval.current);
+      pollingInterval.current = null;
+    }
+    disconnectDevice();
+  };
+
+
   return {
     isScanning,
     devices,
@@ -193,6 +259,12 @@ export function useBluetooth() {
     disconnectDevice,
     shareDataViaBluetooth,
     importDataViaBluetooth,
-    initializeBluetooth
+    initializeBluetooth,
+    // Real-time sync functions
+    startServer,
+    stopServer,
+    updateCombatState,
+    startClient,
+    stopClient,
   };
 }

@@ -22,6 +22,7 @@ export interface Creature {
   proficiencyBonus: number;
   actions: Action[];
   description: string;
+  lootTable?: { itemId: string; dropChance: number }[];
 }
 
 export interface Action {
@@ -68,7 +69,11 @@ export const bestiary: Creature[] = [
         range: "80/320 pies"
       }
     ],
-    description: "Pequeña criatura maligna que vive en cuevas y túneles."
+    description: "Pequeña criatura maligna que vive en cuevas y túneles.",
+    lootTable: [
+      { itemId: 'dagger', dropChance: 0.2 },
+      { itemId: 'potion-healing-minor', dropChance: 0.05 }
+    ]
   },
   {
     id: "orc",
@@ -105,7 +110,11 @@ export const bestiary: Creature[] = [
         range: "5 pies o alcance 30/120 pies"
       }
     ],
-    description: "Guerrero feroz y brutal que vive para la batalla."
+    description: "Guerrero feroz y brutal que vive para la batalla.",
+    lootTable: [
+      { itemId: 'mace', dropChance: 0.15 },
+      { itemId: 'shield-wooden', dropChance: 0.1 }
+    ]
   },
   {
     id: "skeleton",

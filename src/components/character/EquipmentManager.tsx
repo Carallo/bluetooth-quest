@@ -6,7 +6,7 @@ import { type Item } from '@/data/items';
 import { type Character } from '@/data/characters';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { Shield, Sword, Ring, Amulet, Boot, Shirt } from 'lucide-react';
+import { Shield, Sword, CircleDot as Ring, Gem as Amulet, Footprints as Boot, Shirt } from 'lucide-react';
 
 const ItemTypes = {
   EQUIPMENT: 'equipment',
@@ -114,7 +114,7 @@ export const EquipmentManager = ({ character, inventory, onUpdateEquipment }: Eq
   };
 
   const unequippedInventory = inventory.filter(
-    (item) => !Object.values(equipped).some((equippedItem: any) => equippedItem?.id === item.id)
+    (item) => !Object.values(equipped).some((equippedItem: Item | null) => equippedItem?.id === item.id)
   );
 
   return (

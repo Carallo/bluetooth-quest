@@ -1,14 +1,17 @@
 import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EpicButton } from "@/components/ui/epic-button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sword, Shield, Heart, Zap, Users, Dice6, RotateCcw, Plus, Minus, Trophy } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Sword, Shield, Heart, Zap, Users, Dice6, RotateCcw, Plus, Minus, Trophy, Run, ShieldCheck, HeartPulse, Package, Skull } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Character } from "@/data/characters";
 import { Creature } from "@/data/bestiary";
+import { Item } from "@/data/items";
 import { RewardSystem } from "../narrator/RewardSystem";
 
 interface CombatParticipant {
@@ -39,9 +42,11 @@ interface CombatInterfaceProps {
   characters: Character[];
   monsters: Creature[];
   onBack: () => void;
+  isNarratorMode?: boolean;
+  connectedDeviceId?: string | null;
 }
 
-export const CombatInterface = ({ characters, monsters, onBack }: CombatInterfaceProps) => {
+export const CombatInterface = ({ characters, monsters, onBack, isNarratorMode = true, connectedDeviceId = null }: CombatInterfaceProps) => {
   const [participants, setParticipants] = useState<CombatParticipant[]>([]);
   const [currentRound, setCurrentRound] = useState(1);
   const [currentTurn, setCurrentTurn] = useState(0);
@@ -49,17 +54,61 @@ export const CombatInterface = ({ characters, monsters, onBack }: CombatInterfac
   const [isInitiativeRolled, setIsInitiativeRolled] = useState(false);
   const [showRewardSystem, setShowRewardSystem] = useState(false);
   const [defeatedMonsters, setDefeatedMonsters] = useState<Creature[]>([]);
+  const [isTargeting, setIsTargeting] = useState<{ attackerId: string | null }>({ attackerId: null });
+  const [itemUseModalOpen, setItemUseModalOpen] = useState(false);
+  const [defeatedCharacter, setDefeatedCharacter] = useState<CombatParticipant | null>(null);
   const [selectedParticipants, setSelectedParticipants] = useState<{characters: string[], monsters: string[]}>({
     characters: [],
     monsters: []
   });
   const { toast } = useToast();
+  const { startServer, stopServer, updateCombatState, startClient, stopClient } = useBluetooth();
+
+  // Bi-directional sync effect
+  useEffect(() => {
+    // Narrator broadcasts state
+    if (isNarratorMode) {
+      if (participants.length > 0) {
+        updateCombatState(JSON.stringify(participants));
+      }
+    }
+  }, [participants, isNarratorMode, updateCombatState]);
+
+  // Bluetooth connection management effect
+  useEffect(() => {
+    if (isNarratorMode) {
+      startServer();
+      return () => {
+        stopServer();
+      };
+    } else if(connectedDeviceId) {
+      const handleStateUpdate = (state: string) => {
+        try {
+          const receivedParticipants = JSON.parse(state);
+          // Basic validation to prevent malformed data errors
+          if (Array.isArray(receivedParticipants)) {
+            setParticipants(receivedParticipants);
+          }
+        } catch (e) {
+          console.error("Error parsing received combat state:", e);
+        }
+      };
+      startClient(connectedDeviceId, handleStateUpdate);
+      return () => {
+        stopClient();
+      };
+    }
+  }, [isNarratorMode, connectedDeviceId, startServer, stopServer, startClient, stopClient]);
 
   useEffect(() => {
-    const aliveMonsters = participants.filter(p => p.type === 'monster' && p.hp > 0);
-    if (isInitiativeRolled && aliveMonsters.length === 0 && participants.some(p => p.type === 'monster')) {
+    const aliveCharacters = participants.filter(p => p.type === 'character' && p.hp > 0 && !p.conditions.includes('Huyó'));
+    const aliveMonsters = participants.filter(p => p.type === 'monster' && p.hp > 0 && !p.conditions.includes('Huyó'));
+
+    if (!isInitiativeRolled) return;
+
+    if (aliveMonsters.length === 0 && participants.some(p => p.type === 'monster')) {
       toast({
-        title: "¡Combate finalizado!",
+        title: "¡Victoria!",
         description: "Todos los monstruos han sido derrotados.",
         duration: 5000,
       });
@@ -68,6 +117,13 @@ export const CombatInterface = ({ characters, monsters, onBack }: CombatInterfac
         .map(p => p.data as Creature);
       setDefeatedMonsters(allMonsters);
       setShowRewardSystem(true);
+    } else if (aliveCharacters.length === 0 && participants.some(p => p.type === 'character')) {
+        toast({
+            title: "¡Derrota!",
+            description: "Todos los personajes han sido derrotados o han huido.",
+            duration: 5000,
+        });
+        // Here we could trigger the defeat mechanics (revive/destroy)
     }
   }, [participants, isInitiativeRolled, toast]);
 
@@ -162,68 +218,220 @@ export const CombatInterface = ({ characters, monsters, onBack }: CombatInterfac
     });
   };
 
+  const logAction = (participantId: string, action: string, target?: string, damage?: number, healing?: number) => {
+    const newAction: CombatAction = {
+      id: Date.now().toString(),
+      participantId,
+      action,
+      target,
+      damage,
+      healing,
+      round: currentRound,
+      timestamp: Date.now()
+    };
+    setCombatLog(prev => [newAction, ...prev]);
+  };
+
   // Siguiente turno
   const nextTurn = () => {
+    let nextTurnIndex = (currentTurn + 1) % participants.length;
+
+    // Find the next participant that is not dead or fled
+    while (participants[nextTurnIndex].hp === 0 || participants[nextTurnIndex].conditions.includes('Huyó')) {
+        nextTurnIndex = (nextTurnIndex + 1) % participants.length;
+        // If we loop back to the start, something is wrong, but this is a safeguard
+        if (nextTurnIndex === currentTurn) break;
+    }
+
     setParticipants(prev => {
-      const newParticipants = [...prev];
-      newParticipants[currentTurn].isActive = false;
-      
-      const nextTurnIndex = (currentTurn + 1) % newParticipants.length;
-      newParticipants[nextTurnIndex].isActive = true;
-      
+      const newParticipants = prev.map((p, index) => {
+        const isCurrent = index === currentTurn;
+        const isNext = index === nextTurnIndex;
+
+        // Deactivate current participant
+        if (isCurrent) {
+          return { ...p, isActive: false };
+        }
+
+        // Activate next participant and remove 'Defendiendo' status
+        if (isNext) {
+          return {
+            ...p,
+            isActive: true,
+            conditions: p.conditions.filter(c => c !== 'Defendiendo'),
+          };
+        }
+
+        return p;
+      });
       return newParticipants;
     });
 
-    if (currentTurn === participants.length - 1) {
+    if (nextTurnIndex < currentTurn) {
       setCurrentRound(prev => prev + 1);
-      setCurrentTurn(0);
-    } else {
-      setCurrentTurn(prev => prev + 1);
     }
+    setCurrentTurn(nextTurnIndex);
   };
 
   // Aplicar daño
   const applyDamage = (participantId: string, damage: number) => {
+    let defeatedChar: CombatParticipant | null = null;
     setParticipants(prev => 
-      prev.map(p => 
-        p.id === participantId 
-          ? { ...p, hp: Math.max(0, p.hp - damage) }
-          : p
-      )
+      prev.map(p => {
+        if (p.id === participantId) {
+          const newHp = Math.max(0, p.hp - damage);
+          if (newHp === 0 && p.type === 'character') {
+            defeatedChar = { ...p, hp: 0 };
+          }
+          return { ...p, hp: newHp };
+        }
+        return p;
+      })
     );
 
-    const action: CombatAction = {
-      id: Date.now().toString(),
-      participantId,
-      action: `Recibe ${damage} de daño`,
-      damage,
-      round: currentRound,
-      timestamp: Date.now()
-    };
+    if (defeatedChar) {
+      setDefeatedCharacter(defeatedChar);
+    }
 
-    setCombatLog(prev => [action, ...prev]);
+    const participant = participants.find(p => p.id === participantId);
+    if (participant) {
+        logAction(participantId, `recibe ${damage} de daño.`);
+    }
   };
 
   // Aplicar curación
   const applyHealing = (participantId: string, healing: number) => {
     setParticipants(prev => 
-      prev.map(p => 
-        p.id === participantId 
-          ? { ...p, hp: Math.min(p.maxHp, p.hp + healing) }
+      prev.map(p => {
+        if (p.id === participantId && !p.conditions.includes('Muerto')) {
+          return { ...p, hp: Math.min(p.maxHp, p.hp + healing) };
+        }
+        return p;
+      })
+    );
+    const participant = participants.find(p => p.id === participantId);
+    if (participant && !participant.conditions.includes('Muerto')) {
+        logAction(participantId, `recibe ${healing} de curación.`);
+    }
+  };
+
+  const handleAttack = (attackerId: string) => {
+    setIsTargeting({ attackerId });
+    toast({ title: "Selecciona un objetivo", description: "Haz clic en el participante que deseas atacar." });
+  };
+
+  const handleSelectTarget = (targetId: string) => {
+    if (!isTargeting.attackerId) return;
+
+    const attacker = participants.find(p => p.id === isTargeting.attackerId);
+    const target = participants.find(p => p.id === targetId);
+
+    if (!attacker || !target || attacker.id === target.id || target.hp === 0) {
+      setIsTargeting({ attackerId: null });
+      toast({ variant: "destructive", title: "Objetivo inválido" });
+      return;
+    }
+
+    // Simplified attack logic
+    const attackRoll = Math.floor(Math.random() * 20) + 1;
+    const isDefending = target.conditions.includes('Defendiendo');
+    // In a real scenario, we'd use attacker's bonus vs target's AC.
+    // For now, let's say >10 hits, or >15 if defending.
+    const hitThreshold = isDefending ? 15 : 10;
+
+    if (attackRoll >= hitThreshold) {
+        const damage = Math.floor(Math.random() * 6) + 1; // 1d6 damage
+        applyDamage(target.id, damage);
+        logAction(attacker.id, `ataca a ${target.name} y le inflige ${damage} de daño (tirada ${attackRoll}).`);
+    } else {
+        logAction(attacker.id, `falla su ataque contra ${target.name} (tirada ${attackRoll}).`);
+    }
+
+    setIsTargeting({ attackerId: null });
+    nextTurn();
+  };
+
+  const handleDefend = (participantId: string) => {
+    setParticipants(prev =>
+      prev.map(p =>
+        p.id === participantId ? { ...p, conditions: [...p.conditions, 'Defendiendo'] } : p
+      )
+    );
+    logAction(participantId, 'adopta una postura defensiva.');
+    nextTurn();
+  };
+
+  const handleFlee = (participantId: string) => {
+    setParticipants(prev =>
+        prev.map(p =>
+          p.id === participantId ? { ...p, conditions: [...p.conditions, 'Huyó'] } : p
+        )
+    );
+    logAction(participantId, 'ha huido del combate.');
+    nextTurn();
+  };
+
+  const handleSelfHeal = (participantId: string) => {
+    const healingAmount = Math.floor(Math.random() * 8) + 1; // 1d8
+    applyHealing(participantId, healingAmount);
+    logAction(participantId, `se concentra y se cura ${healingAmount} puntos de vida.`);
+    nextTurn();
+  };
+
+  const handleUseItem = (item: Item, participantId: string) => {
+    const participant = participants.find(p => p.id === participantId);
+    if (!participant || participant.conditions.includes('Muerto')) return;
+
+    // For now, we only handle healing potions
+    if (item.type === 'potion' && item.effect?.includes('heal')) {
+      const healing = parseInt(item.effect.split(' ')[1], 10) || 5;
+      applyHealing(participantId, healing);
+      logAction(participantId, `usa ${item.name} y se cura ${healing} puntos de vida.`);
+    }
+
+    // Consume item - This is a local mutation, ideally this should be handled by a global state manager
+    const updatedParticipants = participants.map(p => {
+        if (p.id === participantId && p.data.inventory) {
+            const newInventory = [...p.data.inventory];
+            const itemIndex = newInventory.findIndex(i => i.id === item.id);
+            if (itemIndex > -1) {
+                newInventory.splice(itemIndex, 1);
+            }
+            return { ...p, data: { ...p.data, inventory: newInventory } };
+        }
+        return p;
+    });
+    setParticipants(updatedParticipants);
+
+    setItemUseModalOpen(false);
+    nextTurn();
+  };
+
+  const handleRevive = () => {
+    if (!defeatedCharacter) return;
+    setParticipants(prev =>
+      prev.map(p =>
+        p.id === defeatedCharacter.id
+          ? { ...p, hp: 1, conditions: [...p.conditions.filter(c => c !== 'Muerto'), 'Debilitado'] }
           : p
       )
     );
+    logAction(defeatedCharacter.id, 'es revivido, pero se siente debilitado.');
+    setDefeatedCharacter(null);
+  };
 
-    const action: CombatAction = {
-      id: Date.now().toString(),
-      participantId,
-      action: `Recibe ${healing} de curación`,
-      healing,
-      round: currentRound,
-      timestamp: Date.now()
-    };
-
-    setCombatLog(prev => [action, ...prev]);
+  const handleDestroy = () => {
+    if (!defeatedCharacter) return;
+    setParticipants(prev =>
+      prev.map(p =>
+        p.id === defeatedCharacter.id
+          ? { ...p, conditions: [...p.conditions.filter(c => c !== 'Debilitado'), 'Muerto'] }
+          : p
+      )
+    );
+    logAction(defeatedCharacter.id, 'ha muerto permanentemente.');
+    setDefeatedCharacter(null);
+     // Here we would call a function passed via props to permanently delete the character from the game state
   };
 
   // Reiniciar combate
@@ -289,8 +497,8 @@ export const CombatInterface = ({ characters, monsters, onBack }: CombatInterfac
         </div>
       </div>
 
-      {!isInitiativeRolled ? (
-        /* Configuración del combate */
+      {(!isInitiativeRolled && isNarratorMode) ? (
+        /* Configuración del combate (solo para el narrador) */
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Selección de personajes */}
           <Card className="p-6 bg-gradient-medieval border-primary/30">
@@ -385,7 +593,10 @@ export const CombatInterface = ({ characters, monsters, onBack }: CombatInterfac
                       participant.isActive 
                         ? 'border-primary bg-primary/10 shadow-lg' 
                         : 'border-muted bg-muted/50'
-                    }`}
+                    } ${isTargeting.attackerId && isTargeting.attackerId !== participant.id && participant.hp > 0 ? 'cursor-crosshair hover:border-red-500' : ''}
+                    ${participant.hp === 0 || participant.conditions.includes('Huyó') ? 'opacity-50' : ''}
+                    `}
+                    onClick={() => isNarratorMode && isTargeting.attackerId && handleSelectTarget(participant.id)}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -399,6 +610,8 @@ export const CombatInterface = ({ characters, monsters, onBack }: CombatInterfac
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Shield className="w-4 h-4" />
                             CA {participant.ac}
+                            {participant.conditions.length > 0 && <Separator orientation="vertical" className="h-4" />}
+                            {participant.conditions.map(c => <Badge key={c} variant="secondary">{c}</Badge>)}
                           </div>
                         </div>
                       </div>
@@ -418,34 +631,89 @@ export const CombatInterface = ({ characters, monsters, onBack }: CombatInterfac
                           </div>
                         </div>
 
-                        {/* Controles de HP */}
-                        <div className="flex gap-1">
-                          <EpicButton
-                            variant="outline"
-                            size="sm"
-                            onClick={() => applyDamage(participant.id, 5)}
-                          >
-                            -5
-                          </EpicButton>
-                          <EpicButton
-                            variant="outline"
-                            size="sm"
-                            onClick={() => applyHealing(participant.id, 5)}
-                          >
-                            +5
-                          </EpicButton>
-                        </div>
+                        {/* Controles de HP Manuales (solo narrador) */}
+                        {isNarratorMode && (
+                          <div className="flex gap-1">
+                            <Input type="number" defaultValue={5} className="w-16 h-9" id={`dmg-${participant.id}`} />
+                            <EpicButton
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                  const input = document.getElementById(`dmg-${participant.id}`) as HTMLInputElement;
+                                  applyDamage(participant.id, parseInt(input.value) || 5)
+                              }}
+                            >
+                              <Minus className="w-4 h-4"/>
+                            </EpicButton>
+                            <EpicButton
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                  const input = document.getElementById(`dmg-${participant.id}`) as HTMLInputElement;
+                                  applyHealing(participant.id, parseInt(input.value) || 5)
+                              }}
+                            >
+                              <Plus className="w-4 h-4"/>
+                            </EpicButton>
+                          </div>
+                        )}
                       </div>
                     </div>
+                    {isNarratorMode && participant.isActive && participant.hp > 0 && !participant.conditions.includes('Muerto') && !isTargeting.attackerId && (
+                        <div className="mt-4 flex flex-wrap gap-2 justify-center border-t border-primary/20 pt-3">
+                            <EpicButton size="sm" onClick={() => handleAttack(participant.id)}>
+                                <Sword className="w-4 h-4 mr-2" />
+                                Atacar
+                            </EpicButton>
+                            <EpicButton size="sm" onClick={() => handleDefend(participant.id)}>
+                                <ShieldCheck className="w-4 h-4 mr-2" />
+                                Defender
+                            </EpicButton>
+                             <EpicButton size="sm" onClick={() => handleSelfHeal(participant.id)}>
+                                <HeartPulse className="w-4 h-4 mr-2" />
+                                Curarse
+                            </EpicButton>
+                            <Dialog open={itemUseModalOpen} onOpenChange={setItemUseModalOpen}>
+                                <DialogTrigger asChild>
+                                    <EpicButton size="sm" onClick={() => setItemUseModalOpen(true)} disabled={participant.type === 'monster' || !participant.data.inventory?.some(i => i.type === 'potion')}>
+                                        <Package className="w-4 h-4 mr-2" />
+                                        Usar Objeto
+                                    </EpicButton>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Usar un objeto del inventario de {participant.name}</DialogTitle>
+                                    </DialogHeader>
+                                    <ScrollArea className="h-64">
+                                        <div className="space-y-2">
+                                            {(participant.data as Character).inventory?.filter(i => i.type === 'potion').map(item => (
+                                                <div key={item.id} className="flex justify-between items-center p-2 bg-muted rounded">
+                                                    <p>{item.name} <span className="text-muted-foreground text-xs">({item.description})</span></p>
+                                                    <EpicButton size="sm" onClick={() => handleUseItem(item, participant.id)}>Usar</EpicButton>
+                                                </div>
+                                            ))}
+                                             {(participant.data as Character).inventory?.filter(i => i.type === 'potion').length === 0 && (
+                                                <p className="text-muted-foreground text-center">No hay objetos utilizables.</p>
+                                            )}
+                                        </div>
+                                    </ScrollArea>
+                                </DialogContent>
+                            </Dialog>
+                            <EpicButton size="sm" variant="destructive" onClick={() => handleFlee(participant.id)}>
+                                <Run className="w-4 h-4 mr-2" />
+                                Huir
+                            </EpicButton>
+                        </div>
+                    )}
                   </div>
                 ))}
               </div>
 
-              <div className="mt-6 flex justify-center">
-                <EpicButton onClick={nextTurn} size="lg">
+              {isNarratorMode && <div className="mt-6 flex justify-center">
+                <EpicButton onClick={nextTurn} size="lg" disabled={isTargeting.attackerId !== null}>
                   Siguiente Turno
                 </EpicButton>
-              </div>
+              </div>}
             </Card>
           </div>
 
@@ -456,16 +724,16 @@ export const CombatInterface = ({ characters, monsters, onBack }: CombatInterfac
               Log de Combate
             </h3>
             <ScrollArea className="h-96">
-              <div className="space-y-2">
+              <div className="space-y-2 text-sm">
                 {combatLog.map(action => (
                   <div key={action.id} className="p-3 bg-muted rounded-md">
                     <div className="flex items-center justify-between">
                       <span className="font-medium">
-                        {participants.find(p => p.id === action.participantId)?.name}
+                        {participants.find(p => p.id === action.participantId)?.name || 'Sistema'}
                       </span>
                       <Badge variant="outline">R{action.round}</Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-muted-foreground mt-1">
                       {action.action}
                     </p>
                   </div>
