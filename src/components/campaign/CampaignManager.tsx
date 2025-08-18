@@ -18,9 +18,18 @@ import {
   Plus,
   Edit,
   Trash2,
-  Save
+  Save,
+  Wand2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { PlotGenerator } from './PlotGenerator';
+import { NpcRelationshipManager } from './NpcRelationshipManager';
+
+interface Relationship {
+  source: string;
+  target: string;
+  type: 'ally' | 'enemy' | 'neutral' | 'family' | 'rival';
+}
 
 interface Campaign {
   id: string;
@@ -37,6 +46,7 @@ interface Campaign {
   notes: CampaignNote[];
   npcs: CampaignNPC[];
   locations: CampaignLocation[];
+  relationships: Relationship[];
 }
 
 interface CampaignSession {
@@ -133,7 +143,8 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
           connections: ['Bosque Sombrio', 'Montañas del Norte'],
           secrets: 'Túneles antiguos bajo la ciudad'
         }
-      ]
+      ],
+      relationships: []
     }
   ]);
   
@@ -142,6 +153,14 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
   const [newCampaign, setNewCampaign] = useState<Partial<Campaign>>({});
   const [activeTab, setActiveTab] = useState('overview');
   const { toast } = useToast();
+
+  const handleUpdateRelationships = (newRelationships: Relationship[]) => {
+    if (selectedCampaign) {
+      const updatedCampaign = { ...selectedCampaign, relationships: newRelationships };
+      setCampaigns(prev => prev.map(c => c.id === selectedCampaign.id ? updatedCampaign : c));
+      setSelectedCampaign(updatedCampaign);
+    }
+  };
 
   const createCampaign = () => {
     if (!newCampaign.name) {
@@ -167,7 +186,8 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
       sessions: [],
       notes: [],
       npcs: [],
-      locations: []
+      locations: [],
+      relationships: []
     };
 
     setCampaigns(prev => [...prev, campaign]);
@@ -300,12 +320,17 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
           ) : selectedCampaign && (
             /* Detalles de campaña seleccionada */
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-7">
                 <TabsTrigger value="overview">Resumen</TabsTrigger>
                 <TabsTrigger value="sessions">Sesiones</TabsTrigger>
                 <TabsTrigger value="notes">Notas</TabsTrigger>
                 <TabsTrigger value="npcs">NPCs</TabsTrigger>
                 <TabsTrigger value="locations">Lugares</TabsTrigger>
+                <TabsTrigger value="relationships">Relaciones</TabsTrigger>
+                <TabsTrigger value="plot-generator">
+                  <Wand2 className="w-4 h-4 mr-2" />
+                  Ideas
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="overview">
@@ -474,6 +499,16 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
                     ))}
                   </div>
                 </Card>
+              </TabsContent>
+              <TabsContent value="plot-generator">
+                <PlotGenerator />
+              </TabsContent>
+              <TabsContent value="relationships">
+                <NpcRelationshipManager
+                  npcs={selectedCampaign.npcs}
+                  relationships={selectedCampaign.relationships || []}
+                  onUpdateRelationships={handleUpdateRelationships}
+                />
               </TabsContent>
             </Tabs>
           )}

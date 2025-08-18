@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bluetooth, Search, Wifi, WifiOff, Share } from 'lucide-react';
+import { Bluetooth, Search, Wifi, WifiOff, Share, Upload } from 'lucide-react';
 import { useBluetooth } from '@/hooks/useBluetooth';
 import { useToast } from '@/hooks/use-toast';
 
@@ -22,6 +22,7 @@ export const BluetoothManager = ({ data, filename = 'dnd-data.json' }: Bluetooth
     connectToDevice,
     disconnectDevice,
     shareDataViaBluetooth,
+    importDataViaBluetooth,
     initializeBluetooth
   } = useBluetooth();
 
@@ -36,6 +37,22 @@ export const BluetoothManager = ({ data, filename = 'dnd-data.json' }: Bluetooth
       toast({
         title: "Error de Bluetooth",
         description: "No se pudo inicializar Bluetooth",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleImport = async () => {
+    try {
+      await importDataViaBluetooth();
+      toast({
+        title: "Importación exitosa",
+        description: "Los datos han sido cargados en la aplicación."
+      });
+    } catch (error) {
+      toast({
+        title: "Error de importación",
+        description: (error as Error).message,
         variant: "destructive"
       });
     }
@@ -94,6 +111,11 @@ export const BluetoothManager = ({ data, filename = 'dnd-data.json' }: Bluetooth
               Compartir Datos
             </Button>
           )}
+
+          <Button onClick={handleImport} variant="outline">
+            <Upload className="w-4 h-4 mr-2" />
+            Importar Datos
+          </Button>
         </div>
 
         {/* Dispositivo conectado */}

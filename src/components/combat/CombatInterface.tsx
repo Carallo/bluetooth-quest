@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sword, Shield, Heart, Zap, Users, Dice6, RotateCcw, Plus, Minus } from "lucide-react";
+import { Sword, Shield, Heart, Zap, Users, Dice6, RotateCcw, Plus, Minus, Trophy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Character } from "@/data/characters";
 import { Creature } from "@/data/bestiary";
+import { RewardSystem } from "../narrator/RewardSystem";
 
 interface CombatParticipant {
   id: string;
@@ -46,11 +47,29 @@ export const CombatInterface = ({ characters, monsters, onBack }: CombatInterfac
   const [currentTurn, setCurrentTurn] = useState(0);
   const [combatLog, setCombatLog] = useState<CombatAction[]>([]);
   const [isInitiativeRolled, setIsInitiativeRolled] = useState(false);
+  const [showRewardSystem, setShowRewardSystem] = useState(false);
+  const [defeatedMonsters, setDefeatedMonsters] = useState<Creature[]>([]);
   const [selectedParticipants, setSelectedParticipants] = useState<{characters: string[], monsters: string[]}>({
     characters: [],
     monsters: []
   });
   const { toast } = useToast();
+
+  useEffect(() => {
+    const aliveMonsters = participants.filter(p => p.type === 'monster' && p.hp > 0);
+    if (isInitiativeRolled && aliveMonsters.length === 0 && participants.some(p => p.type === 'monster')) {
+      toast({
+        title: "¡Combate finalizado!",
+        description: "Todos los monstruos han sido derrotados.",
+        duration: 5000,
+      });
+      const allMonsters = participants
+        .filter(p => p.type === 'monster')
+        .map(p => p.data as Creature);
+      setDefeatedMonsters(allMonsters);
+      setShowRewardSystem(true);
+    }
+  }, [participants, isInitiativeRolled, toast]);
 
   // Agregar participantes al combate
   const addCharacter = (character: Character) => {
@@ -223,6 +242,31 @@ export const CombatInterface = ({ characters, monsters, onBack }: CombatInterfac
     if (percentage > 30) return "bg-yellow-500";
     return "bg-red-500";
   };
+
+  if (showRewardSystem) {
+    return (
+      <div className="min-h-screen bg-background p-4">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <EpicButton variant="ghost" onClick={onBack}>
+              ← Volver
+            </EpicButton>
+            <h1 className="text-3xl font-bold text-primary">
+              <Trophy className="w-8 h-8 inline mr-2" />
+              Recompensas del Encuentro
+            </h1>
+          </div>
+          <EpicButton onClick={resetCombat}>
+            Finalizar
+          </EpicButton>
+        </div>
+        <RewardSystem
+          creatures={defeatedMonsters}
+          partySize={participants.filter(p => p.type === 'character').length}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-4">

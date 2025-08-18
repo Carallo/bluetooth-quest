@@ -3,6 +3,7 @@ import { BleClient, BleDevice } from '@capacitor-community/bluetooth-le';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
+import { useOfflineData } from './useOfflineData';
 
 export interface BluetoothDevice {
   id: string;
@@ -15,6 +16,7 @@ export function useBluetooth() {
   const [devices, setDevices] = useState<BluetoothDevice[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [connectedDevice, setConnectedDevice] = useState<BluetoothDevice | null>(null);
+  const { importData } = useOfflineData();
 
   const initializeBluetooth = useCallback(async () => {
     if (!Capacitor.isNativePlatform()) {
@@ -148,6 +150,39 @@ export function useBluetooth() {
     }
   }, []);
 
+  const importDataViaBluetooth = useCallback(async () => {
+    return new Promise((resolve, reject) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'application/json,.json';
+      input.onchange = (event) => {
+        const target = event.target as HTMLInputElement;
+        const file = target.files?.[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              const content = e.target?.result as string;
+              const success = importData(content);
+              if(success) {
+                resolve(true);
+              } else {
+                reject(new Error('Failed to parse JSON.'));
+              }
+            } catch (error) {
+              reject(error);
+            }
+          };
+          reader.onerror = reject;
+          reader.readAsText(file);
+        } else {
+          reject(new Error('No file selected.'));
+        }
+      };
+      input.click();
+    });
+  }, [importData]);
+
   return {
     isScanning,
     devices,
@@ -157,6 +192,7 @@ export function useBluetooth() {
     connectToDevice,
     disconnectDevice,
     shareDataViaBluetooth,
+    importDataViaBluetooth,
     initializeBluetooth
   };
 }

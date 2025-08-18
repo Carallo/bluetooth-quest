@@ -1,3 +1,5 @@
+import { Item } from './items';
+
 export interface Character {
   id: string;
   name: string;
@@ -33,6 +35,16 @@ export interface Character {
     [key: string]: boolean;
   };
   equipment: string[];
+  equipmentV2?: {
+    mainHand?: Item;
+    offHand?: Item;
+    armor?: Item;
+    amulet?: Item;
+    ring1?: Item;
+    ring2?: Item;
+    boots?: Item;
+    cloak?: Item;
+  },
   spells: string[];
   inventory?: any[];
   background: string;

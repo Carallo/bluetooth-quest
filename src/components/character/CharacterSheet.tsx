@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { EpicButton } from "@/components/ui/epic-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,10 +10,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Edit, Heart, Shield, Zap, Coins, Backpack, BookOpen, Swords, Package } from "lucide-react";
 import { type Character, getStatModifier, getProficiencyBonus, getExperienceForLevel } from "@/data/characters";
+import { type Item } from "@/data/items";
 import { InventoryManager } from "./InventoryManager";
 import { SpellManager } from "./SpellManager";
 import { LevelUpManager } from "./LevelUpManager";
 import { CharacterStats } from "./CharacterStats";
+import { EquipmentManager } from "./EquipmentManager";
 import { useToast } from "@/hooks/use-toast";
 import { useOfflineData } from "@/hooks/useOfflineData";
 
@@ -33,6 +35,25 @@ export const CharacterSheet = ({ character, onEdit, onUpdate, onBack }: Characte
   const [notes, setNotes] = useState(character.notes);
   const [inventory, setInventory] = useState(data.inventory.filter(item => item.characterId === character.id) || []);
   const [showLevelUp, setShowLevelUp] = useState(false);
+  const [showEquipmentManager, setShowEquipmentManager] = useState(false);
+
+  useEffect(() => {
+    let newAc = 10 + getStatModifier(character.stats.dexterity); // Unarmored
+    const armor = character.equipmentV2?.armor;
+    if(armor && armor.armorClass){
+        newAc = armor.armorClass + getStatModifier(character.stats.dexterity); // Simplified
+    }
+    const shield = character.equipmentV2?.offHand;
+    if(shield && shield.armorClass && shield.name.toLowerCase().includes('escudo')){
+        newAc += shield.armorClass;
+    }
+    setTempAc(newAc);
+  }, [character.equipmentV2, character.stats.dexterity]);
+
+  const handleUpdateEquipment = (newEquipment: { [key: string]: Item | null }) => {
+    const updatedCharacter = { ...character, equipmentV2: newEquipment };
+    onUpdate(updatedCharacter);
+  };
 
   const saveChanges = () => {
     const updatedCharacter = {
@@ -90,6 +111,27 @@ export const CharacterSheet = ({ character, onEdit, onUpdate, onBack }: Characte
           character={character}
           onLevelUp={handleLevelUp}
           onClose={() => setShowLevelUp(false)}
+        />
+      </div>
+    );
+  }
+
+  if (showEquipmentManager) {
+    return (
+      <div className="max-w-6xl mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold text-primary">Gestionar Equipo</h1>
+            <p className="text-xl text-muted-foreground">{character.name}</p>
+          </div>
+          <EpicButton onClick={() => setShowEquipmentManager(false)}>
+            Volver a la Ficha
+          </EpicButton>
+        </div>
+        <EquipmentManager
+          character={character}
+          inventory={inventory}
+          onUpdateEquipment={handleUpdateEquipment}
         />
       </div>
     );
@@ -279,17 +321,19 @@ export const CharacterSheet = ({ character, onEdit, onUpdate, onBack }: Characte
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {character.equipment.length > 0 ? (
-                    character.equipment.map((item, index) => (
-                      <Badge key={index} variant="outline" className="mr-2 mb-2">
-                        {item}
-                      </Badge>
-                    ))
+                  {character.equipmentV2 && Object.values(character.equipmentV2).some(i => i) ? (
+                    Object.entries(character.equipmentV2).map(([slot, item]) =>
+                      item ? (
+                        <Badge key={slot} variant="outline" className="mr-2 mb-2">
+                          {item.name} ({slot})
+                        </Badge>
+                      ) : null
+                    )
                   ) : (
                     <p className="text-muted-foreground text-sm">No hay equipo equipado</p>
                   )}
                 </div>
-                <EpicButton variant="outline" className="w-full mt-4">
+                <EpicButton variant="outline" className="w-full mt-4" onClick={() => setShowEquipmentManager(true)}>
                   Gestionar Equipo
                 </EpicButton>
               </CardContent>
