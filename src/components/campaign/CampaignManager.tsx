@@ -19,13 +19,20 @@ import {
   Edit,
   Trash2,
   Save,
-  Wand2
+  Wand2,
+  Store
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PlotGenerator } from './PlotGenerator';
 import { NpcRelationshipManager } from './NpcRelationshipManager';
+import { ShopInterface } from '../shop/ShopInterface';
+import { Character, characters as allCharacters } from '@/data/characters';
+import { items } from '@/data/items';
+import { bestiary } from '@/data/bestiary';
+import { InventoryItem } from "../character/InventoryManager";
 
 interface Relationship {
+  id: string;
   source: string;
   target: string;
   type: 'ally' | 'enemy' | 'neutral' | 'family' | 'rival';
@@ -41,10 +48,10 @@ interface Campaign {
   createdAt: string;
   lastSession: string;
   nextSession: string;
-  playerCount: number;
+  playerCharacters: (Character & { inventory: InventoryItem[] })[];
   sessions: CampaignSession[];
   notes: CampaignNote[];
-  npcs: CampaignNPC[];
+  npcs: (CampaignNPC & { inventory: InventoryItem[], gold: number });
   locations: CampaignLocation[];
   relationships: Relationship[];
 }
@@ -93,7 +100,7 @@ interface CampaignManagerProps {
 import { useOfflineData } from "@/hooks/useOfflineData";
 
 export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
-  const { data, saveCampaign } = useOfflineData();
+  const { data, saveCampaign, addCharacter, updateCharacter } = useOfflineData();
   const { campaigns } = data;
   
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(campaigns.length > 0 ? campaigns[0] : null);
@@ -101,13 +108,62 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
   const [newCampaign, setNewCampaign] = useState<Partial<Campaign>>({});
   const [activeTab, setActiveTab] = useState('overview');
   const { toast } = useToast();
+  const { startServer, stopServer } = useBluetooth();
+  const [isHosting, setIsHosting] = useState(false);
 
-  const handleUpdateRelationships = (newRelationships: Relationship[]) => {
+  const handleUpdateCharacter = (updatedCharacter: Character & { inventory: InventoryItem[] }) => {
     if (selectedCampaign) {
-      const updatedCampaign = { ...selectedCampaign, relationships: newRelationships };
+      const isPlayerCharacter = selectedCampaign.playerCharacters.some(pc => pc.id === updatedCharacter.id);
+
+      let updatedCampaign: Campaign;
+
+      if (isPlayerCharacter) {
+        updatedCampaign = { ...selectedCampaign, playerCharacters: selectedCampaign.playerCharacters.map(pc => pc.id === updatedCharacter.id ? updatedCharacter : pc) };
+      } else {
+        const updatedNpcs = selectedCampaign.npcs.map(npc => npc.id === updatedCharacter.id ? updatedCharacter as any : npc);
+        updatedCampaign = { ...selectedCampaign, npcs: updatedNpcs };
+      }
+
       saveCampaign(updatedCampaign);
       setSelectedCampaign(updatedCampaign);
     }
+  };
+
+  const handleHostSession = async () => {
+    if (!selectedCampaign) return;
+
+    const onCharacterReceived = (charData: string) => {
+      try {
+        const newPC = JSON.parse(charData) as Character;
+        addCharacter(newPC); // Add to global characters list
+
+        const campaignPC = { ...newPC, inventory: [] };
+        const updatedCampaign = {
+          ...selectedCampaign,
+          playerCharacters: [...selectedCampaign.playerCharacters, campaignPC]
+        };
+        saveCampaign(updatedCampaign);
+        setSelectedCampaign(updatedCampaign);
+
+        toast({ title: '¡Jugador Unido!', description: `${newPC.name} se ha unido a la campaña.` });
+      } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron recibir los datos del personaje.' });
+      }
+    };
+
+    try {
+      await startServer(onCharacterReceived);
+      setIsHosting(true);
+      toast({ title: 'Sesión Iniciada', description: 'Esperando que los jugadores se conecten por Bluetooth...' });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error de Bluetooth', description: (error as Error).message });
+    }
+  };
+
+  const handleStopHosting = async () => {
+    await stopServer();
+    setIsHosting(false);
+    toast({ title: 'Sesión Detenida', description: 'Se ha cerrado la conexión Bluetooth.' });
   };
 
   const createCampaign = () => {
@@ -130,7 +186,7 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
       createdAt: new Date().toISOString().split('T')[0],
       lastSession: '',
       nextSession: '',
-      playerCount: 0,
+      playerCharacters: [],
       sessions: [],
       notes: [],
       npcs: [],
@@ -182,10 +238,23 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
             Gestor de Campañas
           </h1>
         </div>
-        <EpicButton onClick={() => setIsCreating(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Nueva Campaña
-        </EpicButton>
+        <div className="flex items-center gap-2">
+          {isHosting ? (
+            <EpicButton onClick={handleStopHosting} variant="destructive" className="animate-pulse">
+              <BluetoothConnected className="w-4 h-4 mr-2" />
+              Detener Sesión
+            </EpicButton>
+          ) : (
+            <EpicButton onClick={handleHostSession} disabled={!selectedCampaign}>
+              <UserPlus className="w-4 h-4 mr-2" />
+              Iniciar Sesión de Jugadores
+            </EpicButton>
+          )}
+          <EpicButton onClick={() => setIsCreating(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Nueva Campaña
+          </EpicButton>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -268,11 +337,12 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
           ) : selectedCampaign && (
             /* Detalles de campaña seleccionada */
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-7">
+            <TabsList className="grid w-full grid-cols-8">
                 <TabsTrigger value="overview">Resumen</TabsTrigger>
                 <TabsTrigger value="sessions">Sesiones</TabsTrigger>
                 <TabsTrigger value="notes">Notas</TabsTrigger>
-                <TabsTrigger value="npcs">NPCs</TabsTrigger>
+                <TabsTrigger value="npcs">PNJs</TabsTrigger>
+                <TabsTrigger value="pcs">PJs</TabsTrigger>
                 <TabsTrigger value="locations">Lugares</TabsTrigger>
                 <TabsTrigger value="relationships">Relaciones</TabsTrigger>
                 <TabsTrigger value="plot-generator">
@@ -298,7 +368,7 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
                       <div className="text-sm text-muted-foreground">Nivel Promedio</div>
                     </div>
                     <div className="text-center p-3 bg-muted rounded-md">
-                      <div className="text-2xl font-bold text-primary">{selectedCampaign.playerCount}</div>
+                      <div className="text-2xl font-bold text-primary">{selectedCampaign.playerCharacters.length}</div>
                       <div className="text-sm text-muted-foreground">Jugadores</div>
                     </div>
                     <div className="text-center p-3 bg-muted rounded-md">
@@ -450,14 +520,23 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
                 </Card>
               </TabsContent>
               <TabsContent value="plot-generator">
-                <PlotGenerator />
+                <PlotGenerator
+                  npcs={selectedCampaign.npcs}
+                  items={items}
+                  creatures={bestiary}
+                />
               </TabsContent>
               <TabsContent value="relationships">
                 <NpcRelationshipManager
                   npcs={selectedCampaign.npcs}
-                  relationships={selectedCampaign.relationships || []}
-                  onUpdateRelationships={handleUpdateRelationships}
+                  campaignId={selectedCampaign.id}
                 />
+              </TabsContent>
+               <TabsContent value="shop">
+                 <ShopInterface
+                    characters={[...selectedCampaign.playerCharacters, ...selectedCampaign.npcs]}
+                    onUpdateCharacter={handleUpdateCharacter}
+                 />
               </TabsContent>
             </Tabs>
           )}

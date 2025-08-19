@@ -7,6 +7,8 @@ import { useOfflineData } from './useOfflineData';
 
 const COMBAT_SERVICE_UUID = '49535343-FE7D-4AE5-8FA9-9FAFD205E455';
 const COMBAT_STATE_CHARACTERISTIC_UUID = '49535343-1E4D-4BD9-BA61-23C647249616';
+const CHARACTER_SHARE_SERVICE_UUID = '49535343-2E2D-4AE5-8FA9-9FAFD205E455';
+const CHARACTER_DATA_CHARACTERISTIC_UUID = '49535343-3E4D-4BD9-BA61-23C647249616';
 
 export interface BluetoothDevice {
   id: string;
@@ -141,12 +143,23 @@ export function useBluetooth() {
 
   // --- Funciones para Sincronización en Tiempo Real ---
 
-  const startServer = async () => {
+  const startServer = async (onCharacterReceived: (charData: string) => void) => {
     if (!Capacitor.isNativePlatform()) return;
     await initializeBluetooth();
     await BleClient.createBleServer();
-    // Característica para notificar a los clientes
     await BleClient.addService(COMBAT_SERVICE_UUID, true);
+    await BleClient.addService(CHARACTER_SHARE_SERVICE_UUID, true);
+
+    // Start listening for character data writes
+    await BleClient.startNotifications(
+        '', // deviceId is not needed for server notifications
+        CHARACTER_SHARE_SERVICE_UUID,
+        CHARACTER_DATA_CHARACTERISTIC_UUID,
+        (value) => {
+            const charData = new TextDecoder().decode(value);
+            onCharacterReceived(charData);
+        }
+    );
   };
 
   const stopServer = async () => {
@@ -182,6 +195,19 @@ export function useBluetooth() {
     );
   };
 
+  const shareCharacterOverBLE = async (characterData: string) => {
+      if (!connectedDevice) throw new Error("No hay un dispositivo conectado.");
+      if (!Capacitor.isNativePlatform()) return;
+
+      const value = new TextEncoder().encode(characterData);
+      await BleClient.write(
+          connectedDevice.id,
+          CHARACTER_SHARE_SERVICE_UUID,
+          CHARACTER_DATA_CHARACTERISTIC_UUID,
+          value
+      );
+  }
+
   const stopClient = async () => {
     if (connectedDevice) {
       try {
@@ -197,6 +223,6 @@ export function useBluetooth() {
     isScanning, devices, isConnected, connectedDevice,
     scanForDevices, connectToDevice, disconnectDevice,
     shareDataViaBluetooth, importDataViaBluetooth, initializeBluetooth,
-    startServer, stopServer, updateCombatState, startClient, stopClient,
+    startServer, stopServer, updateCombatState, startClient, stopClient, shareCharacterOverBLE,
   };
 }

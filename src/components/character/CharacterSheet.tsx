@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Edit, Heart, Shield, Zap, Coins, Backpack, BookOpen, Swords, Package } from "lucide-react";
+import { Edit, Heart, Shield, Zap, Coins, Backpack, BookOpen, Swords, Package, Share2 } from "lucide-react";
 import { type Character, getStatModifier, getProficiencyBonus, getExperienceForLevel } from "@/data/characters";
 import { type Item } from "@/data/items";
 import { InventoryManager, type InventoryItem } from "./InventoryManager";
@@ -18,6 +18,7 @@ import { CharacterStats } from "./CharacterStats";
 import { EquipmentManager } from "./EquipmentManager";
 import { useToast } from "@/hooks/use-toast";
 import { useOfflineData } from "@/hooks/useOfflineData";
+import { useBluetooth } from "@/hooks/useBluetooth";
 
 interface CharacterSheetProps {
   character: Character;
@@ -30,6 +31,7 @@ interface CharacterSheetProps {
 export const CharacterSheet = ({ character, onEdit, onUpdate, onBack, defaultTab = 'stats' }: CharacterSheetProps) => {
   const { toast } = useToast();
   const { data } = useOfflineData();
+  const { isConnected, shareCharacterOverBLE } = useBluetooth();
 
   const [inventory, setInventory] = useState<InventoryItem[]>(data.inventory.filter(item => item.characterId === character.id) || []);
   const [tempHp, setTempHp] = useState(character.hitPoints.current);
@@ -38,6 +40,30 @@ export const CharacterSheet = ({ character, onEdit, onUpdate, onBack, defaultTab
 
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [showEquipmentManager, setShowEquipmentManager] = useState(false);
+
+  // Effect to automatically share character data when connected to a narrator
+  useEffect(() => {
+    if (isConnected) {
+      const shareData = async () => {
+        try {
+          // We don't want to share the full inventory, just the character sheet data
+          const { inventory, ...charToShare } = character;
+          await shareCharacterOverBLE(JSON.stringify(charToShare));
+          toast({
+            title: 'Personaje Compartido',
+            description: 'Tus datos han sido enviados al Narrador.'
+          });
+        } catch (error) {
+          toast({
+            variant: 'destructive',
+            title: 'Error al compartir',
+            description: (error as Error).message
+          });
+        }
+      };
+      shareData();
+    }
+  }, [isConnected, character, shareCharacterOverBLE, toast]);
 
   const effectiveStats = useMemo(() => {
     const baseStats = { ...character.stats };
