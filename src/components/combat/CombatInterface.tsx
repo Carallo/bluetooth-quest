@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Sword, Shield, Heart, Zap, Users, Dice6, RotateCcw, Plus, Minus, Trophy, Run, ShieldCheck, HeartPulse, Package, Skull } from "lucide-react";
+import { Sword, Shield, Heart, Zap, Users, Dice6, RotateCcw, Plus, Minus, Trophy, Footprints, ShieldCheck, HeartPulse, Package, Skull } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Character } from "@/data/characters";
 import { Creature } from "@/data/bestiary";
@@ -700,7 +700,7 @@ export const CombatInterface = ({ characters, monsters, onBack, isNarratorMode =
                                 </DialogContent>
                             </Dialog>
                             <EpicButton size="sm" variant="destructive" onClick={() => handleFlee(participant.id)}>
-                                <Run className="w-4 h-4 mr-2" />
+                                <Footprints className="w-4 h-4 mr-2" />
                                 Huir
                             </EpicButton>
                         </div>

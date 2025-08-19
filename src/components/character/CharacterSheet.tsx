@@ -24,9 +24,10 @@ interface CharacterSheetProps {
   onEdit: (character: Character) => void;
   onUpdate: (character: Character) => void;
   onBack: () => void;
+  defaultTab?: string;
 }
 
-export const CharacterSheet = ({ character, onEdit, onUpdate, onBack }: CharacterSheetProps) => {
+export const CharacterSheet = ({ character, onEdit, onUpdate, onBack, defaultTab = 'stats' }: CharacterSheetProps) => {
   const { toast } = useToast();
   const { data, addToInventory, removeFromInventory } = useOfflineData();
   const [tempHp, setTempHp] = useState(character.hitPoints.current);
@@ -161,7 +162,7 @@ export const CharacterSheet = ({ character, onEdit, onUpdate, onBack }: Characte
         </div>
       </div>
 
-      <Tabs defaultValue="stats" className="w-full">
+      <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="stats">Estadísticas</TabsTrigger>
           <TabsTrigger value="combat">Combate</TabsTrigger>

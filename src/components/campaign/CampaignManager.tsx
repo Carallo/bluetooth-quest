@@ -90,65 +90,13 @@ interface CampaignManagerProps {
   onBack: () => void;
 }
 
+import { useOfflineData } from "@/hooks/useOfflineData";
+
 export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([
-    {
-      id: '1',
-      name: 'Los Guardianes del Cristal',
-      description: 'Una aventura épica donde los héroes deben encontrar los cristales perdidos antes de que el mal se apodere del reino.',
-      setting: 'Reino de Aethermoor',
-      level: 8,
-      status: 'active',
-      createdAt: '2024-01-15',
-      lastSession: '2024-01-08',
-      nextSession: '2024-01-15',
-      playerCount: 4,
-      sessions: [
-        {
-          id: '1',
-          title: 'El Despertar del Mal',
-          date: '2024-01-01',
-          duration: 240,
-          summary: 'Los héroes se conocen en la taberna y reciben su primera misión.',
-          experience: 1200,
-          treasure: ['Poción de Curación', '50 monedas de oro']
-        }
-      ],
-      notes: [
-        {
-          id: '1',
-          title: 'Reglas de la casa',
-          content: 'Muerte a 0 HP, no revivir automático.',
-          category: 'rule',
-          createdAt: '2024-01-01'
-        }
-      ],
-      npcs: [
-        {
-          id: '1',
-          name: 'Maestro Aldric',
-          description: 'Viejo mago sabio con larga barba blanca',
-          role: 'Mentor',
-          location: 'Torre de los Magos',
-          relationship: 'ally',
-          notes: 'Conoce sobre los cristales'
-        }
-      ],
-      locations: [
-        {
-          id: '1',
-          name: 'Villa Piedraverde',
-          description: 'Pequeño pueblo rodeado de colinas verdes',
-          type: 'city',
-          connections: ['Bosque Sombrio', 'Montañas del Norte'],
-          secrets: 'Túneles antiguos bajo la ciudad'
-        }
-      ],
-      relationships: []
-    }
-  ]);
+  const { data, saveCampaign } = useOfflineData();
+  const { campaigns } = data;
   
-  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(campaigns[0]);
+  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(campaigns.length > 0 ? campaigns[0] : null);
   const [isCreating, setIsCreating] = useState(false);
   const [newCampaign, setNewCampaign] = useState<Partial<Campaign>>({});
   const [activeTab, setActiveTab] = useState('overview');
@@ -157,7 +105,7 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
   const handleUpdateRelationships = (newRelationships: Relationship[]) => {
     if (selectedCampaign) {
       const updatedCampaign = { ...selectedCampaign, relationships: newRelationships };
-      setCampaigns(prev => prev.map(c => c.id === selectedCampaign.id ? updatedCampaign : c));
+      saveCampaign(updatedCampaign);
       setSelectedCampaign(updatedCampaign);
     }
   };
@@ -190,7 +138,7 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
       relationships: []
     };
 
-    setCampaigns(prev => [...prev, campaign]);
+    saveCampaign(campaign);
     setSelectedCampaign(campaign);
     setIsCreating(false);
     setNewCampaign({});
@@ -403,7 +351,7 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
                           <Badge variant="outline">{session.date}</Badge>
                         </div>
                         <p className="text-sm text-muted-foreground mb-2">{session.summary}</p>
-                        <div className="flex gap-4 text-xs text-muted-foreground">
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                           <span>⏱️ {session.duration} min</span>
                           <span>⭐ {session.experience} XP</span>
                           <span>💰 {session.treasure.length} objetos</span>
@@ -463,9 +411,9 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
                           </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground mb-1">{npc.description}</p>
-                        <div className="text-xs text-muted-foreground">
-                          <span className="font-medium">Rol:</span> {npc.role} • 
-                          <span className="font-medium ml-2">Ubicación:</span> {npc.location}
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                          <span><span className="font-medium">Rol:</span> {npc.role}</span>
+                          <span><span className="font-medium">Ubicación:</span> {npc.location}</span>
                         </div>
                       </div>
                     ))}
@@ -491,8 +439,9 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
                         </div>
                         <p className="text-sm text-muted-foreground mb-2">{location.description}</p>
                         {location.connections.length > 0 && (
-                          <div className="text-xs text-muted-foreground">
-                            <span className="font-medium">Conectado a:</span> {location.connections.join(', ')}
+                          <div className="flex flex-wrap gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                            <span className="font-medium">Conectado a:</span>
+                            <span>{location.connections.join(', ')}</span>
                           </div>
                         )}
                       </div>

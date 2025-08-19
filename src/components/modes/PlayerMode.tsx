@@ -19,6 +19,7 @@ export const PlayerMode = ({ onBack }: PlayerModeProps) => {
   const { data, saveCharacter, deleteCharacter: removeCharacter } = useOfflineData();
   const [currentView, setCurrentView] = useState<'list' | 'create' | 'edit' | 'view'>('list');
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
+  const [initialTab, setInitialTab] = useState('stats');
 
   const characters = data.characters;
 
@@ -34,6 +35,7 @@ export const PlayerMode = ({ onBack }: PlayerModeProps) => {
 
   const handleViewCharacter = (character: Character) => {
     setSelectedCharacter(character);
+    setInitialTab('inventory');
     setCurrentView('view');
   };
 
@@ -55,6 +57,7 @@ export const PlayerMode = ({ onBack }: PlayerModeProps) => {
   const handleBackToList = () => {
     setCurrentView('list');
     setSelectedCharacter(null);
+    setInitialTab('stats');
   };
 
   const renderCurrentView = () => {
@@ -75,6 +78,7 @@ export const PlayerMode = ({ onBack }: PlayerModeProps) => {
             onEdit={handleEditCharacter}
             onUpdate={handleUpdateCharacter}
             onBack={handleBackToList}
+            defaultTab={initialTab}
           />
         ) : null;
       default:
