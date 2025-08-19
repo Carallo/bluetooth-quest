@@ -97,7 +97,7 @@ export const CombatInterface = ({ characters, monsters, onBack, isNarratorMode =
     monsters: []
   });
   const { toast } = useToast();
-  const { startServer, stopServer, updateCombatState, startClient, stopClient } = useBluetooth();
+  const { startCombatServer, stopServer, updateCombatState, startClient, stopClient } = useBluetooth();
 
   const hasCondition = (p: CombatParticipant, name: string) => p.conditions.some(c => c.name === name);
 
@@ -113,7 +113,7 @@ export const CombatInterface = ({ characters, monsters, onBack, isNarratorMode =
   // Bluetooth connection management effect
   useEffect(() => {
     if (isNarratorMode) {
-      startServer().catch(err => toast({ variant: 'destructive', title: 'Error de Servidor BLE', description: err.message }));
+      startCombatServer().catch(err => toast({ variant: 'destructive', title: 'Error de Servidor BLE', description: (err as Error).message }));
       return () => {
         stopServer().catch(err => console.error("Error stopping server", err));
       };
@@ -131,13 +131,13 @@ export const CombatInterface = ({ characters, monsters, onBack, isNarratorMode =
         }
       };
       startClient(connectedDeviceId, handleStateUpdate)
-        .catch(err => toast({ variant: 'destructive', title: 'Error de Cliente BLE', description: err.message }));
+        .catch(err => toast({ variant: 'destructive', title: 'Error de Cliente BLE', description: (err as Error).message }));
 
       return () => {
         stopClient().catch(err => console.error("Error stopping client", err));
       };
     }
-  }, [isNarratorMode, connectedDeviceId, startServer, stopServer, startClient, stopClient, toast]);
+  }, [isNarratorMode, connectedDeviceId, startCombatServer, stopServer, startClient, stopClient, toast]);
 
   useEffect(() => {
     if (!isInitiativeRolled) return;

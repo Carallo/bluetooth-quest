@@ -29,11 +29,14 @@ export function useBluetooth() {
       return false;
     }
     try {
-      await BleClient.initialize();
+      await BleClient.initialize({ androidNeverForLocation: false });
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error al inicializar Bluetooth:', error);
-      throw new Error('Por favor, activa el Bluetooth.');
+      if (error.message.includes('permissions')) {
+        throw new Error('Se necesitan permisos de ubicación para buscar dispositivos Bluetooth.');
+      }
+      throw new Error('Por favor, activa el Bluetooth para continuar.');
     }
   }, []);
 
@@ -53,10 +56,10 @@ export function useBluetooth() {
         await BleClient.stopLEScan();
         setIsScanning(false);
       }, 10000);
-    } catch (error) {
+    } catch (error: any) {
       setIsScanning(false);
       console.error('Error al escanear:', error);
-      throw new Error('No se pudo iniciar el escaneo de dispositivos.');
+      throw new Error(`Error al escanear: ${error.message}`);
     }
   }, [initializeBluetooth]);
 
@@ -162,6 +165,13 @@ export function useBluetooth() {
     );
   };
 
+  const startCombatServer = async () => {
+    if (!Capacitor.isNativePlatform()) return;
+    await initializeBluetooth();
+    await BleClient.createBleServer();
+    await BleClient.addService(COMBAT_SERVICE_UUID, true);
+  };
+
   const stopServer = async () => {
     if (!Capacitor.isNativePlatform()) return;
     await BleClient.closeBleServer();
@@ -224,5 +234,6 @@ export function useBluetooth() {
     scanForDevices, connectToDevice, disconnectDevice,
     shareDataViaBluetooth, importDataViaBluetooth, initializeBluetooth,
     startServer, stopServer, updateCombatState, startClient, stopClient, shareCharacterOverBLE,
+    startCombatServer,
   };
 }

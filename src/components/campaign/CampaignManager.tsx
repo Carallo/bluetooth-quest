@@ -30,6 +30,9 @@ import { Character, characters as allCharacters } from '@/data/characters';
 import { items } from '@/data/items';
 import { bestiary } from '@/data/bestiary';
 import { InventoryItem } from "../character/InventoryManager";
+import { useBluetooth } from "@/hooks/useBluetooth";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 interface Relationship {
   id: string;
@@ -51,7 +54,7 @@ interface Campaign {
   playerCharacters: (Character & { inventory: InventoryItem[] })[];
   sessions: CampaignSession[];
   notes: CampaignNote[];
-  npcs: (CampaignNPC & { inventory: InventoryItem[], gold: number });
+  npcs: (CampaignNPC & { inventory: InventoryItem[], gold: number })[];
   locations: CampaignLocation[];
   relationships: Relationship[];
 }
@@ -82,6 +85,19 @@ interface CampaignNPC {
   location: string;
   relationship: 'ally' | 'neutral' | 'enemy' | 'unknown';
   notes: string;
+  class: string;
+  race: string;
+  level: number;
+  gold: number;
+  inventory: InventoryItem[];
+  stats: {
+    strength: number;
+    dexterity: number;
+    constitution: number;
+    intelligence: number;
+    wisdom: number;
+    charisma: number;
+  };
 }
 
 interface CampaignLocation {
@@ -340,12 +356,12 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
         <div className="flex items-center gap-2">
           {isHosting ? (
             <EpicButton onClick={handleStopHosting} variant="destructive" className="animate-pulse">
-              <BluetoothConnected className="w-4 h-4 mr-2" />
+              <Sword className="w-4 h-4 mr-2" />
               Detener Sesión
             </EpicButton>
           ) : (
             <EpicButton onClick={handleHostSession} disabled={!selectedCampaign}>
-              <UserPlus className="w-4 h-4 mr-2" />
+              <Users className="w-4 h-4 mr-2" />
               Iniciar Sesión de Jugadores
             </EpicButton>
           )}
@@ -379,7 +395,7 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground mb-1">
-                    Nivel {campaign.level} • {campaign.playerCount} jugadores
+                    Nivel {campaign.level} • {campaign.playerCharacters.length} jugadores
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {campaign.setting}
