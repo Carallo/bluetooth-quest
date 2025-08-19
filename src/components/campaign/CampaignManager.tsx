@@ -105,6 +105,14 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
   
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(campaigns.length > 0 ? campaigns[0] : null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isAddingNpc, setIsAddingNpc] = useState(false);
+  const [newNpc, setNewNpc] = useState<Partial<CampaignNPC>>({});
+  const [isAddingSession, setIsAddingSession] = useState(false);
+  const [newSession, setNewSession] = useState<Partial<CampaignSession>>({});
+  const [isAddingNote, setIsAddingNote] = useState(false);
+  const [newNote, setNewNote] = useState<Partial<CampaignNote>>({});
+  const [isAddingLocation, setIsAddingLocation] = useState(false);
+  const [newLocation, setNewLocation] = useState<Partial<CampaignLocation>>({});
   const [newCampaign, setNewCampaign] = useState<Partial<Campaign>>({});
   const [activeTab, setActiveTab] = useState('overview');
   const { toast } = useToast();
@@ -127,6 +135,97 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
       saveCampaign(updatedCampaign);
       setSelectedCampaign(updatedCampaign);
     }
+  };
+
+  const handleAddNewNpc = () => {
+    if (!selectedCampaign || !newNpc.name) {
+      toast({ variant: 'destructive', title: 'Error', description: 'El nombre del PNJ es requerido.' });
+      return;
+    }
+    const npcToAdd: CampaignNPC = {
+      id: `${newNpc.name!.toLowerCase().replace(/\s/g, '-')}-${Date.now()}`,
+      name: newNpc.name,
+      description: newNpc.description || '',
+      role: newNpc.role || 'Secundario',
+      location: newNpc.location || 'Desconocida',
+      relationship: 'neutral',
+      notes: '',
+      class: 'NPC',
+      race: 'Desconocido',
+      level: 1,
+      gold: Math.floor(Math.random() * 50) + 10,
+      inventory: [],
+      stats: { strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
+    };
+    const updatedCampaign = { ...selectedCampaign, npcs: [...selectedCampaign.npcs, npcToAdd] };
+    saveCampaign(updatedCampaign);
+    setSelectedCampaign(updatedCampaign);
+    setIsAddingNpc(false);
+    setNewNpc({});
+    toast({ title: 'PNJ Creado', description: `${npcToAdd.name} ha sido añadido a la campaña.` });
+  };
+
+  const handleAddNewSession = () => {
+    if (!selectedCampaign || !newSession.title) {
+        toast({ variant: 'destructive', title: 'Error', description: 'El título de la sesión es requerido.' });
+        return;
+    }
+    const sessionToAdd: CampaignSession = {
+        id: Date.now().toString(),
+        title: newSession.title,
+        date: new Date().toISOString().split('T')[0],
+        duration: 0,
+        summary: newSession.summary || '',
+        experience: 0,
+        treasure: [],
+    };
+    const updatedCampaign = { ...selectedCampaign, sessions: [...selectedCampaign.sessions, sessionToAdd] };
+    saveCampaign(updatedCampaign);
+    setSelectedCampaign(updatedCampaign);
+    setIsAddingSession(false);
+    setNewSession({});
+    toast({ title: 'Sesión Creada', description: `La sesión "${sessionToAdd.title}" ha sido añadida.` });
+  };
+
+  const handleAddNewNote = () => {
+      if (!selectedCampaign || !newNote.title) {
+          toast({ variant: 'destructive', title: 'Error', description: 'El título de la nota es requerido.' });
+          return;
+      }
+      const noteToAdd: CampaignNote = {
+          id: Date.now().toString(),
+          title: newNote.title,
+          content: newNote.content || '',
+          category: newNote.category || 'general',
+          createdAt: new Date().toISOString(),
+      };
+      const updatedCampaign = { ...selectedCampaign, notes: [...selectedCampaign.notes, noteToAdd] };
+      saveCampaign(updatedCampaign);
+      setSelectedCampaign(updatedCampaign);
+      setIsAddingNote(false);
+      setNewNote({});
+      toast({ title: 'Nota Creada', description: `La nota "${noteToAdd.title}" ha sido añadida.` });
+  };
+
+  const handleAddNewLocation = () => {
+      if (!selectedCampaign || !newLocation.name) {
+          toast({ variant: 'destructive', title: 'Error', description: 'El nombre del lugar es requerido.' });
+          return;
+      }
+      const locationToAdd: CampaignLocation = {
+          id: Date.now().toString(),
+          name: newLocation.name,
+          description: newLocation.description || '',
+          type: newLocation.type || 'other',
+          connections: [],
+          secrets: '',
+      };
+      const updatedCampaign = { ...selectedCampaign, locations: [...selectedCampaign.locations, locationToAdd] };
+      saveCampaign(updatedCampaign);
+      setSelectedCampaign(updatedCampaign);
+      setIsAddingLocation(false);
+      setNewLocation({});
+      toast({ title: 'Lugar Creado', description: `El lugar "${locationToAdd.name}" ha sido añadido.` });
   };
 
   const handleHostSession = async () => {
@@ -408,7 +507,7 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
                 <Card className="p-6 bg-gradient-medieval border-primary/30">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-xl font-bold text-primary">Sesiones</h3>
-                    <EpicButton size="sm">
+                    <EpicButton size="sm" onClick={() => setIsAddingSession(true)}>
                       <Plus className="w-4 h-4 mr-2" />
                       Nueva Sesión
                     </EpicButton>
@@ -436,7 +535,7 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
                 <Card className="p-6 bg-gradient-medieval border-primary/30">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-xl font-bold text-primary">Notas de Campaña</h3>
-                    <EpicButton size="sm">
+                    <EpicButton size="sm" onClick={() => setIsAddingNote(true)}>
                       <Plus className="w-4 h-4 mr-2" />
                       Nueva Nota
                     </EpicButton>
@@ -458,10 +557,10 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
               <TabsContent value="npcs">
                 <Card className="p-6 bg-gradient-medieval border-primary/30">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-bold text-primary">NPCs</h3>
-                    <EpicButton size="sm">
+                    <h3 className="text-xl font-bold text-primary">PNJs de la Campaña</h3>
+                    <EpicButton size="sm" onClick={() => setIsAddingNpc(true)}>
                       <Plus className="w-4 h-4 mr-2" />
-                      Nuevo NPC
+                      Nuevo PNJ
                     </EpicButton>
                   </div>
                   <div className="space-y-3">
@@ -495,7 +594,7 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
                 <Card className="p-6 bg-gradient-medieval border-primary/30">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-xl font-bold text-primary">Lugares</h3>
-                    <EpicButton size="sm">
+                    <EpicButton size="sm" onClick={() => setIsAddingLocation(true)}>
                       <Plus className="w-4 h-4 mr-2" />
                       Nuevo Lugar
                     </EpicButton>
@@ -521,14 +620,14 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
               </TabsContent>
               <TabsContent value="plot-generator">
                 <PlotGenerator
-                  npcs={selectedCampaign.npcs}
+                  npcs={[...selectedCampaign.playerCharacters, ...selectedCampaign.npcs]}
                   items={items}
                   creatures={bestiary}
                 />
               </TabsContent>
               <TabsContent value="relationships">
                 <NpcRelationshipManager
-                  npcs={selectedCampaign.npcs}
+                  npcs={[...selectedCampaign.playerCharacters, ...selectedCampaign.npcs]}
                   campaignId={selectedCampaign.id}
                 />
               </TabsContent>
@@ -542,6 +641,18 @@ export const CampaignManager = ({ onBack }: CampaignManagerProps) => {
           )}
         </div>
       </div>
+
+      {/* Add NPC Modal */}
+      <Dialog open={isAddingNpc} onOpenChange={setIsAddingNpc}><DialogContent><DialogHeader><DialogTitle>Añadir Nuevo PNJ</DialogTitle><DialogDescription>Crea un nuevo personaje no jugador para tu campaña.</DialogDescription></DialogHeader><div className="space-y-4 py-4"><div className="space-y-2"><Label htmlFor="npc-name">Nombre</Label><Input id="npc-name" placeholder="Ej: Elara, la herrera" value={newNpc.name || ''} onChange={e => setNewNpc(p => ({...p, name: e.target.value}))} /></div><div className="space-y-2"><Label htmlFor="npc-desc">Descripción</Label><Textarea id="npc-desc" placeholder="Una breve descripción del PNJ" value={newNpc.description || ''} onChange={e => setNewNpc(p => ({...p, description: e.target.value}))} /></div><div className="space-y-2"><Label htmlFor="npc-role">Rol en la Campaña</Label><Input id="npc-role" placeholder="Ej: Comerciante, Villano, Aliado" value={newNpc.role || ''} onChange={e => setNewNpc(p => ({...p, role: e.target.value}))} /></div><div className="space-y-2"><Label htmlFor="npc-location">Ubicación</Label><Input id="npc-location" placeholder="Ej: La Taberna del Dragón Bostezante" value={newNpc.location || ''} onChange={e => setNewNpc(p => ({...p, location: e.target.value}))} /></div></div><DialogFooter><Button variant="outline" onClick={() => setIsAddingNpc(false)}>Cancelar</Button><EpicButton onClick={handleAddNewNpc}>Guardar PNJ</EpicButton></DialogFooter></DialogContent></Dialog>
+
+      {/* Add Session Modal */}
+      <Dialog open={isAddingSession} onOpenChange={setIsAddingSession}><DialogContent><DialogHeader><DialogTitle>Añadir Nueva Sesión</DialogTitle></DialogHeader><div className="space-y-4 py-4"><div className="space-y-2"><Label htmlFor="session-title">Título</Label><Input id="session-title" placeholder="Ej: El Rescate de Sir Reginald" value={newSession.title || ''} onChange={e => setNewSession(p => ({...p, title: e.target.value}))} /></div><div className="space-y-2"><Label htmlFor="session-summary">Resumen</Label><Textarea id="session-summary" placeholder="¿Qué ocurrió en esta sesión?" value={newSession.summary || ''} onChange={e => setNewSession(p => ({...p, summary: e.target.value}))} /></div></div><DialogFooter><Button variant="outline" onClick={() => setIsAddingSession(false)}>Cancelar</Button><EpicButton onClick={handleAddNewSession}>Guardar Sesión</EpicButton></DialogFooter></DialogContent></Dialog>
+
+      {/* Add Note Modal */}
+      <Dialog open={isAddingNote} onOpenChange={setIsAddingNote}><DialogContent><DialogHeader><DialogTitle>Añadir Nueva Nota</DialogTitle></DialogHeader><div className="space-y-4 py-4"><div className="space-y-2"><Label htmlFor="note-title">Título</Label><Input id="note-title" placeholder="Ej: Pista sobre el Gremio" value={newNote.title || ''} onChange={e => setNewNote(p => ({...p, title: e.target.value}))} /></div><div className="space-y-2"><Label htmlFor="note-content">Contenido</Label><Textarea id="note-content" placeholder="Escribe tu nota aquí..." value={newNote.content || ''} onChange={e => setNewNote(p => ({...p, content: e.target.value}))} /></div><div className="space-y-2"><Label htmlFor="note-category">Categoría</Label><Select onValueChange={(v: CampaignNote['category']) => setNewNote(p => ({...p, category: v}))} defaultValue="general"><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="plot">Trama</SelectItem><SelectItem value="npc">PNJ</SelectItem><SelectItem value="location">Lugar</SelectItem><SelectItem value="rule">Regla</SelectItem><SelectItem value="general">General</SelectItem></SelectContent></Select></div></div><DialogFooter><Button variant="outline" onClick={() => setIsAddingNote(false)}>Cancelar</Button><EpicButton onClick={handleAddNewNote}>Guardar Nota</EpicButton></DialogFooter></DialogContent></Dialog>
+
+      {/* Add Location Modal */}
+      <Dialog open={isAddingLocation} onOpenChange={setIsAddingLocation}><DialogContent><DialogHeader><DialogTitle>Añadir Nuevo Lugar</DialogTitle></DialogHeader><div className="space-y-4 py-4"><div className="space-y-2"><Label htmlFor="location-name">Nombre</Label><Input id="location-name" placeholder="Ej: La Ciénaga Olvidada" value={newLocation.name || ''} onChange={e => setNewLocation(p => ({...p, name: e.target.value}))} /></div><div className="space-y-2"><Label htmlFor="location-desc">Descripción</Label><Textarea id="location-desc" placeholder="Describe este lugar..." value={newLocation.description || ''} onChange={e => setNewLocation(p => ({...p, description: e.target.value}))} /></div><div className="space-y-2"><Label htmlFor="location-type">Tipo</Label><Select onValueChange={(v: CampaignLocation['type']) => setNewLocation(p => ({...p, type: v}))} defaultValue="other"><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="city">Ciudad</SelectItem><SelectItem value="dungeon">Dungeon</SelectItem><SelectItem value="wilderness">Naturaleza</SelectItem><SelectItem value="plane">Plano</SelectItem><SelectItem value="other">Otro</SelectItem></SelectContent></Select></div></div><DialogFooter><Button variant="outline" onClick={() => setIsAddingLocation(false)}>Cancelar</Button><EpicButton onClick={handleAddNewLocation}>Guardar Lugar</EpicButton></DialogFooter></DialogContent></Dialog>
     </div>
   );
 };
