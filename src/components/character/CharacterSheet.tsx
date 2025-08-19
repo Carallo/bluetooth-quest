@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { EpicButton } from "@/components/ui/epic-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Edit, Heart, Shield, Zap, Coins, Backpack, BookOpen, Swords, Package } from "lucide-react";
 import { type Character, getStatModifier, getProficiencyBonus, getExperienceForLevel } from "@/data/characters";
 import { type Item } from "@/data/items";
-import { InventoryManager } from "./InventoryManager";
+import { InventoryManager, type InventoryItem } from "./InventoryManager";
 import { SpellManager } from "./SpellManager";
 import { LevelUpManager } from "./LevelUpManager";
 import { CharacterStats } from "./CharacterStats";
@@ -29,27 +29,44 @@ interface CharacterSheetProps {
 
 export const CharacterSheet = ({ character, onEdit, onUpdate, onBack, defaultTab = 'stats' }: CharacterSheetProps) => {
   const { toast } = useToast();
-  const { data, addToInventory, removeFromInventory } = useOfflineData();
+  const { data } = useOfflineData();
+
+  const [inventory, setInventory] = useState<InventoryItem[]>(data.inventory.filter(item => item.characterId === character.id) || []);
   const [tempHp, setTempHp] = useState(character.hitPoints.current);
-  const [tempAc, setTempAc] = useState(character.armorClass);
   const [tempGold, setTempGold] = useState(character.gold);
   const [notes, setNotes] = useState(character.notes);
-  const [inventory, setInventory] = useState(data.inventory.filter(item => item.characterId === character.id) || []);
+
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [showEquipmentManager, setShowEquipmentManager] = useState(false);
 
-  useEffect(() => {
-    let newAc = 10 + getStatModifier(character.stats.dexterity); // Unarmored
-    const armor = character.equipmentV2?.armor;
-    if(armor && armor.armorClass){
-        newAc = armor.armorClass + getStatModifier(character.stats.dexterity); // Simplified
+  const effectiveStats = useMemo(() => {
+    const baseStats = { ...character.stats };
+    let armorClass = 10 + getStatModifier(baseStats.dexterity);
+
+    const attunedItems = inventory.filter(i => i.attuned);
+    attunedItems.forEach(item => {
+        if (item.effect?.includes('+2 Constitución')) baseStats.constitution += 2;
+        if (item.effect?.includes('+1 CA')) armorClass += 1;
+    });
+
+    const equippedArmor = inventory.find(i => i.equipped && i.category === 'armor' && i.armorClass);
+    if(equippedArmor?.armorClass) {
+        armorClass = equippedArmor.armorClass + getStatModifier(baseStats.dexterity);
     }
-    const shield = character.equipmentV2?.offHand;
-    if(shield && shield.armorClass && shield.name.toLowerCase().includes('escudo')){
-        newAc += shield.armorClass;
+
+    const equippedShield = inventory.find(i => i.equipped && i.name.toLowerCase().includes('escudo'));
+    if(equippedShield?.armorClass){
+        armorClass += equippedShield.armorClass;
     }
-    setTempAc(newAc);
-  }, [character.equipmentV2, character.stats.dexterity]);
+
+    return { stats: baseStats, armorClass };
+  }, [character.stats, inventory]);
+
+  const handleUpdateInventoryAndSave = (newInventory: InventoryItem[]) => {
+    setInventory(newInventory);
+    const updatedCharacter = { ...character, inventory: newInventory.map(({quantity, ...item}) => item) };
+    onUpdate(updatedCharacter);
+  };
 
   const handleUpdateEquipment = (newEquipment: { [key: string]: Item | null }) => {
     const updatedCharacter = { ...character, equipmentV2: newEquipment };
@@ -172,7 +189,7 @@ export const CharacterSheet = ({ character, onEdit, onUpdate, onBack, defaultTab
         </TabsList>
 
         <TabsContent value="stats" className="space-y-6">
-          <CharacterStats character={character} />
+          <CharacterStats character={{...character, stats: effectiveStats.stats}} />
 
           {/* Notas del personaje */}
           <Card>
@@ -236,18 +253,9 @@ export const CharacterSheet = ({ character, onEdit, onUpdate, onBack, defaultTab
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="ac">Clase de Armadura</Label>
-                  <Input
-                    id="ac"
-                    type="number"
-                    value={tempAc}
-                    onChange={(e) => setTempAc(parseInt(e.target.value) || 10)}
-                  />
-                </div>
                 <div className="text-center">
-                  <div className="text-4xl font-bold text-primary">{tempAc}</div>
-                  <p className="text-sm text-muted-foreground">CA Total</p>
+                  <div className="text-6xl font-bold text-primary">{effectiveStats.armorClass}</div>
+                  <p className="text-sm text-muted-foreground">Clase de Armadura Total</p>
                 </div>
               </CardContent>
             </Card>
@@ -347,7 +355,7 @@ export const CharacterSheet = ({ character, onEdit, onUpdate, onBack, defaultTab
             characterId={character.id}
             inventory={inventory}
             gold={tempGold}
-            onUpdateInventory={setInventory}
+            onUpdateInventory={handleUpdateInventoryAndSave}
             onUpdateGold={setTempGold}
           />
         </TabsContent>

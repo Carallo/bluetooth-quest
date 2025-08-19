@@ -20,9 +20,10 @@ import {
 import { items, type Item, categories } from "@/data/items";
 import { useToast } from "@/hooks/use-toast";
 
-interface InventoryItem extends Item {
+export interface InventoryItem extends Item {
   quantity: number;
   equipped?: boolean;
+  attuned?: boolean;
 }
 
 interface InventoryManagerProps {
@@ -53,7 +54,7 @@ export const InventoryManager = ({
       );
       onUpdateInventory(updatedInventory);
     } else {
-      const newItem: InventoryItem = { ...item, quantity, equipped: false };
+      const newItem: InventoryItem = { ...item, quantity, equipped: false, attuned: false };
       onUpdateInventory([...inventory, newItem]);
     }
 
@@ -79,21 +80,38 @@ export const InventoryManager = ({
     onUpdateInventory(updatedInventory);
   };
 
-  const toggleEquipped = (itemId: string) => {
+  const toggleEquipStatus = (itemId: string, type: 'equip' | 'attune') => {
+    const itemToToggle = inventory.find(i => i.id === itemId);
+    if (!itemToToggle) return;
+
+    const key = type === 'equip' ? 'equipped' : 'attuned';
+    const isAttuning = type === 'attune' && !itemToToggle.attuned;
+
+    if (isAttuning) {
+      const attunedCount = inventory.filter(i => i.attuned).length;
+      if (attunedCount >= 3) {
+        toast({
+          variant: 'destructive',
+          title: 'Límite de sintonización alcanzado',
+          description: 'No puedes sintonizar más de 3 objetos mágicos a la vez.'
+        });
+        return;
+      }
+    }
+
     const updatedInventory = inventory.map(item =>
-      item.id === itemId ? { ...item, equipped: !item.equipped } : item
+      item.id === itemId ? { ...item, [key]: !item[key] } : item
     );
     onUpdateInventory(updatedInventory);
 
-    const item = inventory.find(i => i.id === itemId);
     toast({
-      title: item?.equipped ? "Item desequipado" : "Item equipado",
-      description: `${item?.name} ${item?.equipped ? 'desequipado' : 'equipado'}`
+      title: `Item ${itemToToggle[key] ? (type === 'equip' ? 'desequipado' : 'desintonizado') : (type === 'equip' ? 'equipado' : 'sintonizado')}`,
+      description: `${itemToToggle.name} ha sido actualizado.`
     });
   };
 
   const sellItem = (item: InventoryItem, quantity: number = 1) => {
-    const sellPrice = Math.floor(item.price * 0.5 * quantity); // 50% del precio original
+    const sellPrice = Math.floor(item.price * 0.5 * quantity);
     removeItem(item.id, quantity);
     onUpdateGold(gold + sellPrice);
 
@@ -122,81 +140,35 @@ export const InventoryManager = ({
     return inventory.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
 
-  const getEquippedItems = () => {
-    return inventory.filter(item => item.equipped);
+  const getEquippedAndAttunedItems = () => {
+    return inventory.filter(item => item.equipped || item.attuned);
   };
 
   return (
     <div className="space-y-6">
-      {/* Header con estadísticas */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Coins className="w-5 h-5 text-primary" />
-              <span className="text-2xl font-bold text-primary">{gold}</span>
-            </div>
-            <p className="text-sm text-muted-foreground">Oro Disponible</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Package className="w-5 h-5 text-accent" />
-              <span className="text-2xl font-bold text-accent">{inventory.length}</span>
-            </div>
-            <p className="text-sm text-muted-foreground">Items Únicos</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Sparkles className="w-5 h-5 text-secondary" />
-              <span className="text-2xl font-bold text-secondary">{getTotalValue()}</span>
-            </div>
-            <p className="text-sm text-muted-foreground">Valor Total</p>
-          </CardContent>
-        </Card>
+        <Card><CardContent className="p-4 text-center"><div className="flex items-center justify-center gap-2 mb-2"><Coins className="w-5 h-5 text-primary" /><span className="text-2xl font-bold text-primary">{gold}</span></div><p className="text-sm text-muted-foreground">Oro Disponible</p></CardContent></Card>
+        <Card><CardContent className="p-4 text-center"><div className="flex items-center justify-center gap-2 mb-2"><Package className="w-5 h-5 text-accent" /><span className="text-2xl font-bold text-accent">{inventory.length}</span></div><p className="text-sm text-muted-foreground">Items Únicos</p></CardContent></Card>
+        <Card><CardContent className="p-4 text-center"><div className="flex items-center justify-center gap-2 mb-2"><Sparkles className="w-5 h-5 text-secondary" /><span className="text-2xl font-bold text-secondary">{getTotalValue()}</span></div><p className="text-sm text-muted-foreground">Valor Total</p></CardContent></Card>
       </div>
 
       <Tabs defaultValue="inventory">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="inventory">Inventario</TabsTrigger>
-          <TabsTrigger value="equipped">Equipado</TabsTrigger>
+          <TabsTrigger value="equipped">Equipado y Sintonizado</TabsTrigger>
           <TabsTrigger value="shop">Tienda</TabsTrigger>
         </TabsList>
 
         <TabsContent value="inventory" className="space-y-4">
-          {/* Filtros */}
           <div className="flex gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar items..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-3 py-2 border rounded-md bg-background"
-            >
-              <option value="all">Todas las categorías</option>
-              {categories.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
-              ))}
-            </select>
+            <div className="relative flex-1"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input placeholder="Buscar items..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10"/></div>
+            <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="px-3 py-2 border rounded-md bg-background"><option value="all">Todas las categorías</option>{categories.map(cat => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}</select>
           </div>
 
-          {/* Lista de inventario */}
           <ScrollArea className="h-96">
             <div className="space-y-2">
               {filteredInventory.map(item => (
-                <Card key={item.id} className={`p-4 ${item.equipped ? 'border-primary bg-primary/10' : ''}`}>
+                <Card key={item.id} className={`p-4 ${(item.equipped || item.attuned) ? 'border-primary bg-primary/10' : ''}`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       {getItemIcon(item.category)}
@@ -207,6 +179,7 @@ export const InventoryManager = ({
                           <Badge variant="outline">{item.category}</Badge>
                           <Badge variant="secondary">x{item.quantity}</Badge>
                           {item.equipped && <Badge variant="default">Equipado</Badge>}
+                          {item.attuned && <Badge variant="default" className="bg-purple-600">Sintonizado</Badge>}
                         </div>
                       </div>
                     </div>
@@ -220,58 +193,26 @@ export const InventoryManager = ({
                       </div>
 
                       <div className="flex flex-col gap-1">
-                        {(item.category === 'weapons' || item.category === 'armor') && (
-                          <EpicButton
-                            variant={item.equipped ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => toggleEquipped(item.id)}
-                          >
-                            {item.equipped ? "Desequipar" : "Equipar"}
-                          </EpicButton>
-                        )}
-                        
-                        <div className="flex gap-1">
-                          <EpicButton
-                            variant="outline"
-                            size="sm"
-                            onClick={() => removeItem(item.id, 1)}
-                            disabled={item.quantity <= 0}
-                          >
-                            <Minus className="w-3 h-3" />
-                          </EpicButton>
-                          <EpicButton
-                            variant="outline"
-                            size="sm"
-                            onClick={() => sellItem(item, 1)}
-                          >
-                            Vender
-                          </EpicButton>
-                        </div>
+                        {(item.category === 'weapons' || item.category === 'armor') && (<EpicButton variant={item.equipped ? "default" : "outline"} size="sm" onClick={() => toggleEquipStatus(item.id, 'equip')}>{item.equipped ? "Desequipar" : "Equipar"}</EpicButton>)}
+                        {item.category === 'magic' && (<EpicButton variant={item.attuned ? "default" : "outline"} size="sm" onClick={() => toggleEquipStatus(item.id, 'attune')} className={item.attuned ? "bg-purple-600 hover:bg-purple-700" : ""}>{item.attuned ? "Desintonizar" : "Sintonizar"}</EpicButton>)}
+                        <div className="flex gap-1"><EpicButton variant="outline" size="sm" onClick={() => removeItem(item.id, 1)} disabled={item.quantity <= 0}><Minus className="w-3 h-3" /></EpicButton><EpicButton variant="outline" size="sm" onClick={() => sellItem(item, 1)}>Vender</EpicButton></div>
                       </div>
                     </div>
                   </div>
                 </Card>
               ))}
-
-              {filteredInventory.length === 0 && (
-                <div className="text-center py-8">
-                  <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p className="text-muted-foreground">No hay items en el inventario</p>
-                </div>
-              )}
+              {filteredInventory.length === 0 && (<div className="text-center py-8"><Package className="w-12 h-12 mx-auto mb-4 opacity-50" /><p className="text-muted-foreground">No hay items en el inventario</p></div>)}
             </div>
           </ScrollArea>
         </TabsContent>
 
         <TabsContent value="equipped" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Equipo Actual</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle>Equipo Actual</CardTitle></CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {getEquippedItems().map(item => (
-                  <div key={item.id} className="flex items-center justify-between p-3 bg-primary/10 rounded-md">
+                {getEquippedAndAttunedItems().map(item => (
+                  <div key={item.id} className={`flex items-center justify-between p-3 rounded-md ${item.attuned ? 'bg-purple-600/10' : 'bg-primary/10'}`}>
                     <div className="flex items-center gap-3">
                       {getItemIcon(item.category)}
                       <div>
@@ -283,22 +224,12 @@ export const InventoryManager = ({
                         </div>
                       </div>
                     </div>
-                    <EpicButton
-                      variant="outline"
-                      size="sm"
-                      onClick={() => toggleEquipped(item.id)}
-                    >
-                      Desequipar
+                    <EpicButton variant="outline" size="sm" onClick={() => toggleEquipStatus(item.id, item.category === 'magic' ? 'attune' : 'equip')}>
+                      {item.category === 'magic' ? 'Desintonizar' : 'Desequipar'}
                     </EpicButton>
                   </div>
                 ))}
-
-                {getEquippedItems().length === 0 && (
-                  <div className="text-center py-8">
-                    <Shield className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p className="text-muted-foreground">No hay items equipados</p>
-                  </div>
-                )}
+                {getEquippedAndAttunedItems().length === 0 && (<div className="text-center py-8"><Shield className="w-12 h-12 mx-auto mb-4 opacity-50" /><p className="text-muted-foreground">No hay items equipados o sintonizados</p></div>)}
               </div>
             </CardContent>
           </Card>
@@ -306,39 +237,14 @@ export const InventoryManager = ({
 
         <TabsContent value="shop" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Tienda de Aventureros</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle>Tienda de Aventureros</CardTitle></CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {items.slice(0, 10).map(item => (
                   <div key={item.id} className="p-3 border rounded-md">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium">{item.name}</h4>
-                      <Badge variant="outline">{item.price} oro</Badge>
-                    </div>
+                    <div className="flex items-center justify-between mb-2"><h4 className="font-medium">{item.name}</h4><Badge variant="outline">{item.price} oro</Badge></div>
                     <p className="text-sm text-muted-foreground mb-3">{item.description}</p>
-                    <EpicButton
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        if (gold >= item.price) {
-                          addItem(item);
-                          onUpdateGold(gold - item.price);
-                        } else {
-                          toast({
-                            title: "Oro insuficiente",
-                            description: "No tienes suficiente oro para comprar este item",
-                            variant: "destructive"
-                          });
-                        }
-                      }}
-                      disabled={gold < item.price}
-                      className="w-full"
-                    >
-                      <Plus className="w-3 h-3 mr-1" />
-                      Comprar
-                    </EpicButton>
+                    <EpicButton variant="outline" size="sm" onClick={() => { if (gold >= item.price) { addItem(item); onUpdateGold(gold - item.price); } else { toast({ title: "Oro insuficiente", description: "No tienes suficiente oro para comprar este item", variant: "destructive" }); } }} disabled={gold < item.price} className="w-full"><Plus className="w-3 h-3 mr-1" />Comprar</EpicButton>
                   </div>
                 ))}
               </div>
