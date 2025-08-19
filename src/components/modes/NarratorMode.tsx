@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { EpicButton } from "@/components/ui/epic-button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, BookOpen, Sword, Users, Crown, Wand2 } from "lucide-react";
+import { ArrowLeft, BookOpen, Sword, Users, Crown, Wand2, Bluetooth } from "lucide-react";
 import { BestiaryList } from "@/components/bestiary/BestiaryList";
 import { ShopInterface } from "@/components/shop/ShopInterface";
 import { CombatInterface } from "@/components/combat/CombatInterface";
 import { CampaignManager } from "@/components/campaign/CampaignManager";
 import { CharacterManager } from "@/components/narrator/CharacterManager";
 import { RandomEncounterGenerator } from "@/components/narrator/RandomEncounterGenerator";
+import { BluetoothManager } from "@/components/mobile/BluetoothManager";
 import { bestiary } from "@/data/bestiary";
 import type { Creature } from "@/data/bestiary";
 import type { Character } from "@/data/characters";
@@ -16,7 +17,7 @@ interface NarratorModeProps {
   onBack: () => void;
 }
 
-type NarratorView = 'menu' | 'bestiary' | 'shop' | 'combat' | 'campaigns' | 'characters' | 'randomEncounter';
+type NarratorView = 'menu' | 'bestiary' | 'shop' | 'combat' | 'campaigns' | 'characters' | 'randomEncounter' | 'bluetooth';
 
 export const NarratorMode = ({ onBack }: NarratorModeProps) => {
   const [currentView, setCurrentView] = useState<NarratorView>('menu');
@@ -86,6 +87,19 @@ export const NarratorMode = ({ onBack }: NarratorModeProps) => {
             <RandomEncounterGenerator
               partyLevel={selectedCharacters.length > 0 ? Math.floor(selectedCharacters.reduce((acc, c) => acc + c.level, 0) / selectedCharacters.length) : 1}
               partySize={selectedCharacters.length > 0 ? selectedCharacters.length : 4}
+            />
+          </div>
+        );
+      case 'bluetooth':
+        return (
+          <div className="min-h-screen bg-background p-4">
+            <EpicButton variant="ghost" onClick={() => setCurrentView('menu')} className="mb-4">
+              <ArrowLeft className="w-5 h-5" />
+              Volver
+            </EpicButton>
+            <BluetoothManager
+              data={{ characters: selectedCharacters, creatures: selectedCreatures }}
+              filename="dnd-narrator-data.json"
             />
           </div>
         );
@@ -207,6 +221,19 @@ export const NarratorMode = ({ onBack }: NarratorModeProps) => {
                   <h3 className="text-xl font-bold text-accent mb-2">Generador de Encuentros</h3>
                   <p className="text-muted-foreground">
                     Crea combates aleatorios
+                  </p>
+                </div>
+              </Card>
+
+              <Card
+                className="p-6 bg-gradient-medieval border-blue-500/30 hover:border-blue-500/50 transition-all cursor-pointer group"
+                onClick={() => setCurrentView('bluetooth')}
+              >
+                <div className="text-center">
+                  <Bluetooth className="w-12 h-12 mx-auto text-blue-500 mb-4 group-hover:scale-110 transition-transform" />
+                  <h3 className="text-xl font-bold text-blue-500 mb-2">Conexiones</h3>
+                  <p className="text-muted-foreground">
+                    Gestiona conexiones Bluetooth
                   </p>
                 </div>
               </Card>
