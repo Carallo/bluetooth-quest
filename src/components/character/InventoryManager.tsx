@@ -153,10 +153,9 @@ export const InventoryManager = ({
       </div>
 
       <Tabs defaultValue="inventory">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="inventory">Inventario</TabsTrigger>
           <TabsTrigger value="equipped">Equipado y Sintonizado</TabsTrigger>
-          <TabsTrigger value="shop">Tienda</TabsTrigger>
         </TabsList>
 
         <TabsContent value="inventory" className="space-y-4">
@@ -230,23 +229,6 @@ export const InventoryManager = ({
                   </div>
                 ))}
                 {getEquippedAndAttunedItems().length === 0 && (<div className="text-center py-8"><Shield className="w-12 h-12 mx-auto mb-4 opacity-50" /><p className="text-muted-foreground">No hay items equipados o sintonizados</p></div>)}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="shop" className="space-y-4">
-          <Card>
-            <CardHeader><CardTitle>Tienda de Aventureros</CardTitle></CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {items.slice(0, 10).map(item => (
-                  <div key={item.id} className="p-3 border rounded-md">
-                    <div className="flex items-center justify-between mb-2"><h4 className="font-medium">{item.name}</h4><Badge variant="outline">{item.price} oro</Badge></div>
-                    <p className="text-sm text-muted-foreground mb-3">{item.description}</p>
-                    <EpicButton variant="outline" size="sm" onClick={() => { if (gold >= item.price) { addItem(item); onUpdateGold(gold - item.price); } else { toast({ title: "Oro insuficiente", description: "No tienes suficiente oro para comprar este item", variant: "destructive" }); } }} disabled={gold < item.price} className="w-full"><Plus className="w-3 h-3 mr-1" />Comprar</EpicButton>
-                  </div>
-                ))}
               </div>
             </CardContent>
           </Card>

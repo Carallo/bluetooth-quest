@@ -7,21 +7,21 @@ import { CharacterCreation } from "@/components/character/CharacterCreation";
 import { CharacterSheet } from "@/components/character/CharacterSheet";
 import { PlayerConnectionManager } from "@/components/mobile/PlayerConnectionManager";
 import { type Character } from "@/data/characters";
-import { useOfflineData } from "@/hooks/useOfflineData";
 import { useToast } from "@/hooks/use-toast";
 
 interface PlayerModeProps {
   onBack: () => void;
+  characters: Character[];
+  onUpdateCharacter: (character: Character) => void;
+  saveCharacter: (character: Character) => void;
+  deleteCharacter: (characterId: string) => void;
 }
 
-export const PlayerMode = ({ onBack }: PlayerModeProps) => {
+export const PlayerMode = ({ onBack, characters, onUpdateCharacter, saveCharacter, deleteCharacter }: PlayerModeProps) => {
   const { toast } = useToast();
-  const { data, saveCharacter, deleteCharacter: removeCharacter } = useOfflineData();
   const [currentView, setCurrentView] = useState<'list' | 'create' | 'edit' | 'view' | 'connect'>('list');
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
   const [initialTab, setInitialTab] = useState('stats');
-
-  const characters = data.characters;
 
   const handleCreateCharacter = () => {
     setSelectedCharacter(null);
@@ -46,12 +46,12 @@ export const PlayerMode = ({ onBack }: PlayerModeProps) => {
   };
 
   const handleUpdateCharacter = (character: Character) => {
-    saveCharacter(character);
+    onUpdateCharacter(character);
     setSelectedCharacter(character);
   };
 
   const handleDeleteCharacter = (characterId: string) => {
-    removeCharacter(characterId);
+    deleteCharacter(characterId);
   };
 
   const handleBackToList = () => {

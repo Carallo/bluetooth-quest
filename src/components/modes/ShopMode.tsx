@@ -1,18 +1,16 @@
-import { useState } from "react";
 import { EpicButton } from "@/components/ui/epic-button";
 import { ShopInterface } from "@/components/shop/ShopInterface";
-import { type Item } from "@/data/items";
 import { ArrowLeft } from "lucide-react";
+import { Character } from "@/data/characters";
+import { InventoryItem } from "../character/InventoryManager";
 
 interface ShopModeProps {
   onBack: () => void;
-  mode: 'player' | 'narrator';
-  playerGold?: number;
-  onPurchase?: (item: Item, quantity: number) => void;
-  onAddToEncounter?: (item: Item, quantity: number) => void;
+  characters: (Character & { inventory: InventoryItem[] })[];
+  onUpdateCharacter: (character: Character & { inventory: InventoryItem[] }) => void;
 }
 
-export const ShopMode = ({ onBack, mode, playerGold, onPurchase, onAddToEncounter }: ShopModeProps) => {
+export const ShopMode = ({ onBack, characters, onUpdateCharacter }: ShopModeProps) => {
   return (
     <div className="min-h-screen bg-background p-4">
       {/* Header */}
@@ -22,15 +20,13 @@ export const ShopMode = ({ onBack, mode, playerGold, onPurchase, onAddToEncounte
           Volver
         </EpicButton>
         <h1 className="text-3xl font-bold text-primary">
-          {mode === 'player' ? 'Tienda' : 'Arsenal del Narrador'}
+          Tienda
         </h1>
       </div>
 
       <ShopInterface
-        mode={mode}
-        playerGold={playerGold}
-        onPurchase={onPurchase}
-        onAddToEncounter={onAddToEncounter}
+        characters={characters}
+        onUpdateCharacter={onUpdateCharacter}
       />
     </div>
   );

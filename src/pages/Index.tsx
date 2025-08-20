@@ -8,11 +8,14 @@ import { CombatInterface } from "@/components/combat/CombatInterface";
 import { BluetoothManager } from "@/components/mobile/BluetoothManager";
 import { OfflineManager } from "@/components/mobile/OfflineManager";
 import { bestiary } from "@/data/bestiary";
+import { useOfflineData } from "@/hooks/useOfflineData";
+import { type Character } from "@/data/characters";
 
 type AppMode = 'menu' | 'narrator' | 'player' | 'dice' | 'shop' | 'characters' | 'combat' | 'bluetooth' | 'offline';
 
 const Index = () => {
   const [currentMode, setCurrentMode] = useState<AppMode>('menu');
+  const { data, saveCharacter, deleteCharacter } = useOfflineData();
 
   const handleModeSelect = (mode: AppMode) => {
     setCurrentMode(mode);
@@ -22,20 +25,24 @@ const Index = () => {
     setCurrentMode('menu');
   };
 
+  const handleUpdateCharacter = (character: Character) => {
+    saveCharacter(character);
+  };
+
   const renderCurrentMode = () => {
     switch (currentMode) {
       case 'narrator':
         return <NarratorMode onBack={handleBackToMenu} />;
       case 'player':
-        return <PlayerMode onBack={handleBackToMenu} />;
+        return <PlayerMode onBack={handleBackToMenu} characters={data.characters} onUpdateCharacter={handleUpdateCharacter} saveCharacter={saveCharacter} deleteCharacter={deleteCharacter} />;
       case 'dice':
         return <DiceMode onBack={handleBackToMenu} />;
       case 'shop':
-        return <ShopMode mode="player" onBack={handleBackToMenu} />;
+        return <ShopMode onBack={handleBackToMenu} characters={data.characters} onUpdateCharacter={handleUpdateCharacter} />;
       case 'characters':
-        return <PlayerMode onBack={handleBackToMenu} />;
+        return <PlayerMode onBack={handleBackToMenu} characters={data.characters} onUpdateCharacter={handleUpdateCharacter} saveCharacter={saveCharacter} deleteCharacter={deleteCharacter} />;
       case 'combat':
-        return <CombatInterface characters={[]} monsters={bestiary} onBack={handleBackToMenu} />;
+        return <CombatInterface characters={data.characters} monsters={bestiary} onBack={handleBackToMenu} />;
       case 'bluetooth':
         return (
           <div className="min-h-screen bg-background p-4">
