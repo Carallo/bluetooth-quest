@@ -15,7 +15,7 @@ import { Item } from "@/data/items";
 import { RewardSystem } from "../narrator/RewardSystem";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Label } from "../ui/label";
-import { useBluetooth } from "@/hooks/useBluetooth";
+// import { useBluetooth } from "@/hooks/useBluetooth";
 
 // --- START: Condition System Implementation ---
 export const DND_CONDITIONS = {
@@ -98,7 +98,6 @@ export const CombatInterface = ({ characters, monsters, onBack, isNarratorMode =
     monsters: []
   });
   const { toast } = useToast();
-  const { startCombatServer, stopServer, updateCombatState, startClient, stopClient } = useBluetooth();
 
   const cancelTargeting = () => {
     setIsTargeting({ attackerId: null, attackAction: undefined });
@@ -109,44 +108,6 @@ export const CombatInterface = ({ characters, monsters, onBack, isNarratorMode =
   };
 
   const hasCondition = (p: CombatParticipant, name: string) => p.conditions.some(c => c.name === name);
-
-  // Bi-directional sync effect for the Narrator
-  useEffect(() => {
-    if (isNarratorMode) {
-      if (participants.length > 0) {
-        updateCombatState(JSON.stringify(participants));
-      }
-    }
-  }, [participants, isNarratorMode, updateCombatState]);
-
-  // Bluetooth connection management effect
-  useEffect(() => {
-    if (isNarratorMode) {
-      startCombatServer().catch(err => toast({ variant: 'destructive', title: 'Error de Servidor BLE', description: (err as Error).message }));
-      return () => {
-        stopServer().catch(err => console.error("Error stopping server", err));
-      };
-    } else if(connectedDeviceId) {
-      const handleStateUpdate = (state: string) => {
-        try {
-          const receivedParticipants = JSON.parse(state);
-          // Basic validation to prevent malformed data errors
-          if (Array.isArray(receivedParticipants)) {
-            setParticipants(receivedParticipants);
-          }
-        } catch (e) {
-          console.error("Error parsing received combat state:", e);
-          toast({ variant: 'destructive', title: 'Error de Sincronización', description: 'Se recibieron datos corruptos.' });
-        }
-      };
-      startClient(connectedDeviceId, handleStateUpdate)
-        .catch(err => toast({ variant: 'destructive', title: 'Error de Cliente BLE', description: (err as Error).message }));
-
-      return () => {
-        stopClient().catch(err => console.error("Error stopping client", err));
-      };
-    }
-  }, [isNarratorMode, connectedDeviceId, startCombatServer, stopServer, startClient, stopClient, toast]);
 
   useEffect(() => {
     if (!isInitiativeRolled) return;
@@ -494,19 +455,6 @@ export const CombatInterface = ({ characters, monsters, onBack, isNarratorMode =
     ));
     logAction(defeatedCharacter.id, 'ha muerto permanentemente.');
     setDefeatedCharacter(null);
-  };
-
-  const rollDice = (diceString: string): number => {
-    const match = diceString.match(/(\d+)d(\d+)([+-]\d+)?/);
-    if (!match) return 0;
-    const numDice = parseInt(match[1]);
-    const numSides = parseInt(match[2]);
-    const modifier = match[3] ? parseInt(match[3]) : 0;
-    let total = 0;
-    for (let i = 0; i < numDice; i++) {
-      total += Math.floor(Math.random() * numSides) + 1;
-    }
-    return total + modifier;
   };
 
   const handleApplyAoeDamage = () => {

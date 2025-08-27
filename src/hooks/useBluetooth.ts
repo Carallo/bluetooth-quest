@@ -1,14 +1,13 @@
-import { useState, useCallback } from 'react';
-import { BleClient } from '@capacitor-community/bluetooth-le';
-import { Share } from '@capacitor/share';
-import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { useState, useCallback, useEffect } from 'react';
+import { BleClient, numbersToDataView, textToDataView } from '@capacitor-community/bluetooth-le';
 import { Capacitor } from '@capacitor/core';
 import { useOfflineData } from './useOfflineData';
+import BluetoothServer from '@/plugins/bluetoothServer'; // Import the custom plugin
+import { PluginListenerHandle } from '@capacitor/core';
 
-const COMBAT_SERVICE_UUID = '49535343-FE7D-4AE5-8FA9-9FAFD205E455';
-const COMBAT_STATE_CHARACTERISTIC_UUID = '49535343-1E4D-4BD9-BA61-23C647249616';
-const CHARACTER_SHARE_SERVICE_UUID = '49535343-2E2D-4AE5-8FA9-9FAFD205E455';
-const CHARACTER_DATA_CHARACTERISTIC_UUID = '49535343-3E4D-4BD9-BA61-23C647249616';
+// UUIDs now match the custom native plugin
+const SERVICE_UUID = '0000180d-0000-1000-8000-00805f9b34fb';
+const CHARACTERISTIC_UUID = '00002a37-0000-1000-8000-00805f9b34fb';
 
 export interface BluetoothDevice {
   id: string;
@@ -22,35 +21,55 @@ export function useBluetooth() {
   const [isConnected, setIsConnected] = useState(false);
   const [connectedDevice, setConnectedDevice] = useState<BluetoothDevice | null>(null);
   const { importData } = useOfflineData();
+  const [isServerRunning, setIsServerRunning] = useState(false);
+
+  // Listener handle for cleanup
+  useEffect(() => {
+    let listener: PluginListenerHandle | null = null;
+    if (isServerRunning) {
+      BluetoothServer.addListener('bleDataReceived', (data) => {
+        console.log('Data received from native:', data.value);
+        const success = importData(data.value);
+        if (!success) {
+            console.error("Failed to import received data.");
+        }
+      }).then(l => listener = l);
+    }
+    return () => {
+      listener?.remove();
+    };
+  }, [isServerRunning, importData]);
+
 
   const initializeBluetooth = useCallback(async () => {
     if (!Capacitor.isNativePlatform()) {
-      console.warn('Bluetooth solo disponible en plataformas nativas.');
+      console.warn('Bluetooth is only available on native platforms.');
       return false;
     }
     try {
       await BleClient.initialize({ androidNeverForLocation: false });
       return true;
     } catch (error: any) {
-      console.error('Error al inicializar Bluetooth:', error);
+      console.error('Error initializing Bluetooth:', error);
       if (error.message.includes('permissions')) {
-        throw new Error('Se necesitan permisos de ubicación para buscar dispositivos Bluetooth.');
+        throw new Error('Location permissions are required to find Bluetooth devices.');
       }
-      throw new Error('Por favor, activa el Bluetooth para continuar.');
+      throw new Error('Please enable Bluetooth to continue.');
     }
   }, []);
 
   const scanForDevices = useCallback(async () => {
     if (!Capacitor.isNativePlatform()) {
-      setDevices([{ id: 'sim1', name: 'Dispositivo Simulado 1', rssi: -45 }]);
+      setDevices([{ id: 'sim1', name: 'Simulated Device 1', rssi: -45 }]);
       return;
     }
     try {
       await initializeBluetooth();
       setIsScanning(true);
       setDevices([]);
-      await BleClient.requestLEScan({ services: [COMBAT_SERVICE_UUID] }, (result) => {
-        setDevices(prev => !prev.some(d => d.id === result.device.deviceId) ? [...prev, { id: result.device.deviceId, name: result.device.name || 'Dispositivo desconocido', rssi: result.rssi }] : prev);
+      // Scan for the specific service UUID from our custom plugin
+      await BleClient.requestLEScan({ services: [SERVICE_UUID] }, (result) => {
+        setDevices(prev => !prev.some(d => d.id === result.device.deviceId) ? [...prev, { id: result.device.deviceId, name: result.device.name || 'Unknown Device', rssi: result.rssi }] : prev);
       });
       setTimeout(async () => {
         await BleClient.stopLEScan();
@@ -58,8 +77,8 @@ export function useBluetooth() {
       }, 10000);
     } catch (error: any) {
       setIsScanning(false);
-      console.error('Error al escanear:', error);
-      throw new Error(`Error al escanear: ${error.message}`);
+      console.error('Error scanning:', error);
+      throw new Error(`Error scanning: ${error.message}`);
     }
   }, [initializeBluetooth]);
 
@@ -75,11 +94,11 @@ export function useBluetooth() {
     try {
       await BleClient.connect(deviceId, () => disconnectDevice());
       const device = devices.find(d => d.id === deviceId);
-      setConnectedDevice(device || { id: deviceId, name: 'Dispositivo Conectado' });
+      setConnectedDevice(device || { id: deviceId, name: 'Connected Device' });
       setIsConnected(true);
     } catch (error) {
-      console.error('Error al conectar:', error);
-      throw new Error('No se pudo conectar al dispositivo.');
+      console.error('Error connecting:', error);
+      throw new Error('Could not connect to the device.');
     }
   }, [devices]);
 
@@ -92,148 +111,71 @@ export function useBluetooth() {
     try {
       if (connectedDevice) await BleClient.disconnect(connectedDevice.id);
     } catch (error) {
-      console.error('Error al desconectar:', error);
+      console.error('Error disconnecting:', error);
     } finally {
       setConnectedDevice(null);
       setIsConnected(false);
     }
   }, [connectedDevice]);
 
-  const shareDataViaBluetooth = useCallback(async (data: unknown, filename: string) => {
-    const jsonData = JSON.stringify(data, null, 2);
-    if (Capacitor.isNativePlatform()) {
-      const result = await Filesystem.writeFile({ path: filename, data: jsonData, directory: Directory.Cache, encoding: Encoding.UTF8 });
-      await Share.share({ title: 'Compartir datos D&D', text: 'Datos de personaje/campaña', url: result.uri, dialogTitle: 'Enviar vía Bluetooth' });
-    } else {
-      const blob = new Blob([jsonData], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+  // --- NEW Server and Data Transfer Logic using Custom Plugin ---
+
+  const startServer = async () => {
+    if (!Capacitor.isNativePlatform()) return;
+    try {
+      await BluetoothServer.requestBluetoothPermissions();
+      await BluetoothServer.startServer();
+      setIsServerRunning(true);
+      console.log('Custom Bluetooth Server started successfully.');
+    } catch (error) {
+      console.error('Failed to start custom server:', error);
+      throw error;
     }
-  }, []);
-
-  const importDataViaBluetooth = useCallback(async () => {
-    return new Promise((resolve, reject) => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'application/json,.json';
-      input.onchange = (event) => {
-        const file = (event.target as HTMLInputElement).files?.[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            try {
-              const content = e.target?.result as string;
-              const success = importData(content);
-              if(success) resolve(true);
-              else reject(new Error('Fallo al parsear el JSON.'));
-            } catch (error) { reject(error); }
-          };
-          reader.onerror = reject;
-          reader.readAsText(file);
-        } else {
-          reject(new Error('No se seleccionó ningún archivo.'));
-        }
-      };
-      input.click();
-    });
-  }, [importData]);
-
-  // --- Funciones para Sincronización en Tiempo Real ---
-
-  const startServer = async (onCharacterReceived: (charData: string) => void) => {
-    if (!Capacitor.isNativePlatform()) return;
-    await initializeBluetooth();
-    await BleClient.createBleServer();
-    await BleClient.addService(COMBAT_SERVICE_UUID, true);
-    await BleClient.addService(CHARACTER_SHARE_SERVICE_UUID, true);
-
-    // Start listening for character data writes
-    await BleClient.startNotifications(
-        '', // deviceId is not needed for server notifications
-        CHARACTER_SHARE_SERVICE_UUID,
-        CHARACTER_DATA_CHARACTERISTIC_UUID,
-        (value) => {
-            const charData = new TextDecoder().decode(value);
-            onCharacterReceived(charData);
-        }
-    );
-  };
-
-  const startCombatServer = async () => {
-    if (!Capacitor.isNativePlatform()) return;
-    await initializeBluetooth();
-    await BleClient.createBleServer();
-    await BleClient.addService(COMBAT_SERVICE_UUID, true);
   };
 
   const stopServer = async () => {
-    if (!Capacitor.isNativePlatform()) return;
-    await BleClient.closeBleServer();
-  };
-
-  const updateCombatState = async (state: string) => {
-    if (!Capacitor.isNativePlatform()) return;
+    if (!Capacitor.isNativePlatform() || !isServerRunning) return;
     try {
-      const value = new TextEncoder().encode(state);
-      await BleClient.notify({
-        service: COMBAT_SERVICE_UUID,
-        characteristic: COMBAT_STATE_CHARACTERISTIC_UUID,
-        value,
-      });
+      await BluetoothServer.stopServer();
+      setIsServerRunning(false);
+      console.log('Custom Bluetooth Server stopped.');
     } catch (error) {
-      console.error('Error al notificar estado de combate:', error);
+      console.error('Failed to stop custom server:', error);
     }
   };
 
-  const startClient = async (deviceId: string, onUpdate: (state: string) => void) => {
-    if (!Capacitor.isNativePlatform()) return;
-    await connectToDevice(deviceId);
-    await BleClient.startNotifications(
-      deviceId,
-      COMBAT_SERVICE_UUID,
-      COMBAT_STATE_CHARACTERISTIC_UUID,
-      (value) => {
-        const state = new TextDecoder().decode(value);
-        onUpdate(state);
-      }
-    );
-  };
-
-  const shareCharacterOverBLE = async (characterData: string) => {
-      if (!connectedDevice) throw new Error("No hay un dispositivo conectado.");
-      if (!Capacitor.isNativePlatform()) return;
-
-      const value = new TextEncoder().encode(characterData);
+  const shareDataOverBLE = async (data: object) => {
+    if (!connectedDevice || !Capacitor.isNativePlatform()) {
+      throw new Error("Not connected to any device.");
+    }
+    try {
+      const jsonString = JSON.stringify(data);
+      // The client uses BleClient to write to the server's characteristic
       await BleClient.write(
-          connectedDevice.id,
-          CHARACTER_SHARE_SERVICE_UUID,
-          CHARACTER_DATA_CHARACTERISTIC_UUID,
-          value
+        connectedDevice.id,
+        SERVICE_UUID,
+        CHARACTERISTIC_UUID,
+        textToDataView(jsonString)
       );
-  }
-
-  const stopClient = async () => {
-    if (connectedDevice) {
-      try {
-        await BleClient.stopNotifications(connectedDevice.id, COMBAT_SERVICE_UUID, COMBAT_STATE_CHARACTERISTIC_UUID);
-      } catch (error) {
-        console.error("Error al detener notificaciones: ", error)
-      }
+      console.log('Data shared successfully via BLE.');
+    } catch (error) {
+      console.error('Failed to share data over BLE:', error);
+      throw new Error('Data transfer failed.');
     }
-    await disconnectDevice();
   };
 
   return {
-    isScanning, devices, isConnected, connectedDevice,
-    scanForDevices, connectToDevice, disconnectDevice,
-    shareDataViaBluetooth, importDataViaBluetooth, initializeBluetooth,
-    startServer, stopServer, updateCombatState, startClient, stopClient, shareCharacterOverBLE,
-    startCombatServer,
+    isScanning,
+    devices,
+    isConnected,
+    connectedDevice,
+    isServerRunning,
+    scanForDevices,
+    connectToDevice,
+    disconnectDevice,
+    startServer,
+    stopServer,
+    shareDataOverBLE,
+    initializeBluetooth,
   };
 }

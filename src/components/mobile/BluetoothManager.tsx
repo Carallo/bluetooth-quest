@@ -1,81 +1,75 @@
 // BluetoothManager: A reusable component for managing Bluetooth connections.
-import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bluetooth, Search, Wifi, WifiOff, Share, Upload } from 'lucide-react';
+import { Bluetooth, Search, Wifi, WifiOff, Share, Server, ServerOff } from 'lucide-react';
 import { useBluetooth } from '@/hooks/useBluetooth';
 import { useToast } from '@/hooks/use-toast';
 
 interface BluetoothManagerProps {
   data?: any;
-  filename?: string;
 }
 
-export const BluetoothManager = ({ data, filename = 'dnd-data.json' }: BluetoothManagerProps) => {
+export const BluetoothManager = ({ data }: BluetoothManagerProps) => {
   const { toast } = useToast();
   const {
     isScanning,
     devices,
     isConnected,
     connectedDevice,
+    isServerRunning,
     scanForDevices,
     connectToDevice,
     disconnectDevice,
-    shareDataViaBluetooth,
-    importDataViaBluetooth,
-    initializeBluetooth
+    startServer,
+    stopServer,
+    shareDataOverBLE,
   } = useBluetooth();
 
-  const handleInit = async () => {
-    const success = await initializeBluetooth();
-    if (success) {
-      toast({
-        title: "Bluetooth inicializado",
-        description: "Bluetooth habilitado correctamente"
-      });
-    } else {
-      toast({
-        title: "Error de Bluetooth",
-        description: "No se pudo inicializar Bluetooth",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleImport = async () => {
+  const handleScan = async () => {
     try {
-      await importDataViaBluetooth();
+      await scanForDevices();
       toast({
-        title: "Importación exitosa",
-        description: "Los datos han sido cargados en la aplicación."
+        title: "Buscando dispositivos",
+        description: "Escaneando dispositivos Bluetooth cercanos...",
       });
     } catch (error) {
-      toast({
-        title: "Error de importación",
-        description: (error as Error).message,
-        variant: "destructive"
-      });
+      toast({ title: "Error de Escaneo", description: (error as Error).message, variant: "destructive" });
     }
-  };
-
-  const handleScan = async () => {
-    await scanForDevices();
-    toast({
-      title: "Buscando dispositivos",
-      description: "Escaneando dispositivos Bluetooth cercanos..."
-    });
   };
 
   const handleShare = async () => {
-    if (data) {
-      await shareDataViaBluetooth(data, filename);
-      toast({
-        title: "Compartiendo datos",
-        description: "Archivo listo para enviar"
-      });
+    if (data && isConnected) {
+      try {
+        await shareDataOverBLE(data);
+        toast({
+          title: "Datos Compartidos",
+          description: "Los datos se enviaron correctamente.",
+        });
+      } catch (error) {
+        toast({ title: "Error al Compartir", description: (error as Error).message, variant: "destructive" });
+      }
     }
   };
+
+  const handleStartServer = async () => {
+    try {
+      await startServer();
+      toast({ title: "Servidor Iniciado", description: "El dispositivo ahora es visible para otros." });
+    } catch (error) {
+      toast({ title: "Error de Servidor", description: (error as Error).message, variant: "destructive" });
+    }
+  };
+
+  const handleStopServer = async () => {
+    try {
+      await stopServer();
+      toast({ title: "Servidor Detenido", description: "El dispositivo ya no es visible." });
+    } catch (error) {
+      toast({ title: "Error de Servidor", description: (error as Error).message, variant: "destructive" });
+    }
+  };
+
 
   return (
     <Card className="p-6">
@@ -87,19 +81,32 @@ export const BluetoothManager = ({ data, filename = 'dnd-data.json' }: Bluetooth
             Conectado
           </Badge>
         )}
+        {isServerRunning && (
+          <Badge variant="default" className="bg-blue-500">
+            Servidor Activo
+          </Badge>
+        )}
       </div>
 
       <div className="space-y-4">
         {/* Controles principales */}
         <div className="flex gap-2 flex-wrap">
-          <Button onClick={handleInit} variant="outline">
-            <Bluetooth className="w-4 h-4 mr-2" />
-            Inicializar
-          </Button>
+          {!isServerRunning && (
+            <Button onClick={handleStartServer} variant="outline">
+              <Server className="w-4 h-4 mr-2" />
+              Iniciar Servidor
+            </Button>
+          )}
+          {isServerRunning && (
+            <Button onClick={handleStopServer} variant="destructive">
+              <ServerOff className="w-4 h-4 mr-2" />
+              Detener Servidor
+            </Button>
+          )}
           
           <Button 
             onClick={handleScan} 
-            disabled={isScanning}
+            disabled={isScanning || isServerRunning}
             variant="outline"
           >
             <Search className="w-4 h-4 mr-2" />
@@ -107,16 +114,11 @@ export const BluetoothManager = ({ data, filename = 'dnd-data.json' }: Bluetooth
           </Button>
 
           {data && (
-            <Button onClick={handleShare} variant="default">
+            <Button onClick={handleShare} disabled={!isConnected}>
               <Share className="w-4 h-4 mr-2" />
               Compartir Datos
             </Button>
           )}
-
-          <Button onClick={handleImport} variant="outline">
-            <Upload className="w-4 h-4 mr-2" />
-            Importar Datos
-          </Button>
         </div>
 
         {/* Dispositivo conectado */}
