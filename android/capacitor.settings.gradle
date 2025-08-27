@@ -15,4 +15,4 @@ include ':capacitor-share'
 project(':capacitor-share').projectDir = new File('../node_modules/@capacitor/share/android')
 
 include ':bluetooth-server'
-project(':bluetooth-server').projectDir = new File('../bluetooth-server/android')
+project(':bluetooth-server').projectDir = new File('../node_modules/bluetooth-server/android')
