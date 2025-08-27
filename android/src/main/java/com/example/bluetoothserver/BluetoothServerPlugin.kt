@@ -1,15 +1,28 @@
 package com.example.bluetoothserver
 
+import android.Manifest
 import android.bluetooth.*
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import com.getcapacitor.*
 import com.getcapacitor.annotation.CapacitorPlugin
+import com.getcapacitor.annotation.Permission
+import com.getcapacitor.annotation.PermissionCallback
 import com.getcapacitor.annotation.PluginMethod
 import org.json.JSONObject
 import java.util.*
 
-@CapacitorPlugin(name = "BluetoothServer")
+@CapacitorPlugin(
+    name = "BluetoothServer",
+    permissions = [
+        Permission(alias = "bluetooth", strings = [Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN]),
+        Permission(
+            alias = "bluetooth_connect",
+            strings = [Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_ADVERTISE]
+        )
+    ]
+)
 class BluetoothServerPlugin : Plugin() {
 
     private lateinit var context: Context
@@ -19,7 +32,6 @@ class BluetoothServerPlugin : Plugin() {
 
     companion object {
         private const val TAG = "BluetoothServerPlugin"
-        // UUIDs from the example
         val SERVICE_UUID: UUID = UUID.fromString("0000180D-0000-1000-8000-00805f9b34fb")
         val CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A37-0000-1000-8000-00805f9b34fb")
     }
@@ -33,21 +45,12 @@ class BluetoothServerPlugin : Plugin() {
         override fun onConnectionStateChange(device: BluetoothDevice?, status: Int, newState: Int) {
             super.onConnectionStateChange(device, status, newState)
             when (newState) {
-                BluetoothProfile.STATE_CONNECTED -> {
-                    Log.i(TAG, "Device connected: ${device?.address}")
-                }
-                BluetoothProfile.STATE_DISCONNECTED -> {
-                    Log.i(TAG, "Device disconnected: ${device?.address}")
-                }
+                BluetoothProfile.STATE_CONNECTED -> Log.i(TAG, "Device connected: ${device?.address}")
+                BluetoothProfile.STATE_DISCONNECTED -> Log.i(TAG, "Device disconnected: ${device?.address}")
             }
         }
 
-        override fun onCharacteristicReadRequest(
-            device: BluetoothDevice?,
-            requestId: Int,
-            offset: Int,
-            characteristic: BluetoothGattCharacteristic?
-        ) {
+        override fun onCharacteristicReadRequest(device: BluetoothDevice?, requestId: Int, offset: Int, characteristic: BluetoothGattCharacteristic?) {
             super.onCharacteristicReadRequest(device, requestId, offset, characteristic)
             if (characteristic?.uuid == CHARACTERISTIC_UUID) {
                 Log.i(TAG, "Read request for characteristic ${characteristic.uuid} from ${device?.address}")
@@ -66,7 +69,35 @@ class BluetoothServerPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun requestBluetoothPermissions(call: PluginCall) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            requestPermissionForAlias("bluetooth_connect", call, "permissionCallback")
+        } else {
+            requestPermissionForAlias("bluetooth", call, "permissionCallback")
+        }
+    }
+
+    @PermissionCallback
+    private fun permissionCallback(call: PluginCall) {
+        if (getPermissionState("bluetooth") != PermissionState.GRANTED ||
+            (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && getPermissionState("bluetooth_connect") != PermissionState.GRANTED)
+        ) {
+            call.reject("User denied bluetooth permissions")
+            return
+        }
+        val ret = JSObject().apply { put("granted", true) }
+        call.resolve(ret)
+    }
+
+    @PluginMethod
     fun startServer(call: PluginCall) {
+        if (getPermissionState("bluetooth") != PermissionState.GRANTED ||
+            (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && getPermissionState("bluetooth_connect") != PermissionState.GRANTED)
+        ) {
+            call.reject("Bluetooth permissions are required to start the server.")
+            return
+        }
+
         bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
         if (bluetoothManager == null) {
             call.reject("BluetoothManager not available.")
@@ -95,9 +126,7 @@ class BluetoothServerPlugin : Plugin() {
         service.addCharacteristic(characteristic)
         gattServer?.addService(service)
 
-        val ret = JSObject().apply {
-            put("status", "started")
-        }
+        val ret = JSObject().apply { put("status", "started") }
         call.resolve(ret)
     }
 
@@ -107,9 +136,7 @@ class BluetoothServerPlugin : Plugin() {
             gattServer?.close()
             gattServer = null
             Log.i(TAG, "GATT Server stopped.")
-            val ret = JSObject().apply {
-                put("status", "stopped")
-            }
+            val ret = JSObject().apply { put("status", "stopped") }
             call.resolve(ret)
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping server", e)
