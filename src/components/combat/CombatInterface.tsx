@@ -19,19 +19,20 @@ import { useBluetooth } from "@/hooks/useBluetooth";
 
 // --- START: Condition System Implementation ---
 export const DND_CONDITIONS = {
-  "Aturdido": { description: "No puede realizar acciones ni reacciones. Falla automáticamente las tiradas de salvación de Fuerza y Destreza. Los ataques en su contra tienen ventaja." },
+  "Aturdido": { description: "No puede realizar acciones ni reacciones. Falla automáticamente las tiradas de salvación de Fuerza y Destreza. Los ataques en su contra tienen ventaja.", savingThrow: "constitution" },
   "Cegado": { description: "No puede ver y falla automáticamente cualquier prueba de característica que requiera la vista. Las tiradas de ataque en su contra tienen ventaja, y sus propias tiradas de ataque tienen desventaja." },
   "Derribado": { description: "Su único movimiento posible es arrastrarse, a menos que se levante. Tiene desventaja en las tiradas de ataque. Un ataque en su contra tiene ventaja si el atacante está a 5 pies, si no, el ataque tiene desventaja." },
   "Ensordecido": { description: "No puede oír y falla automáticamente cualquier prueba de característica que requiera el oído." },
   "Envenenado": { description: "Tiene desventaja en las tiradas de ataque y en las pruebas de característica." },
-  "Hechizado": { description: "No puede atacar al lanzador del hechizo ni elegirlo como objetivo de habilidades o efectos mágicos dañinos. El lanzador tiene ventaja en cualquier prueba de característica para interactuar socialmente con la criatura." },
+  "Hechizado": { description: "No puede atacar al lanzador del hechizo ni elegirlo como objetivo de habilidades o efectos mágicos dañinos. El lanzador tiene ventaja en cualquier prueba de característica para interactuar socialmente con la criatura.", savingThrow: "wisdom" },
   "Incapacitado": { description: "No puede realizar acciones ni reacciones." },
   "Invisible": { description: "Es imposible de ver sin la ayuda de la magia o un sentido especial. Se considera que está muy oscuro para el propósito de esconderse. Las tiradas de ataque en su contra tienen desventaja, y sus propias tiradas de ataque tienen ventaja." },
-  "Paralizado": { description: "Está incapacitado y no puede moverse ni hablar. Falla automáticamente las tiradas de salvación de Fuerza y Destreza. Los ataques en su contra tienen ventaja. Cualquier ataque que impacte es un golpe crítico si el atacante está a 5 pies." },
+  "Paralizado": { description: "Está incapacitado y no puede moverse ni hablar. Falla automáticamente las tiradas de salvación de Fuerza y Destreza. Los ataques en su contra tienen ventaja. Cualquier ataque que impacte es un golpe crítico si el atacante está a 5 pies.", savingThrow: "constitution" },
   "Petrificado": { description: "Se transforma, junto con cualquier objeto no mágico que lleve, en una sustancia sólida inanimada. Su peso se multiplica por diez y deja de envejecer. Está incapacitado, no puede moverse ni hablar y no es consciente de su entorno. Los ataques en su contra tienen ventaja. Falla automáticamente las tiradas de salvación de Fuerza y Destreza. Tiene resistencia a todo el daño. Se considera un objeto." },
-  "Asustado": { description: "Tiene desventaja en las pruebas de característica y en las tiradas de ataque mientras la fuente de su miedo esté en su línea de visión. No puede acercarse voluntariamente a la fuente de su miedo." },
-  "Sujetado": { description: "Su velocidad se convierte en 0, y no puede beneficiarse de ninguna bonificación a su velocidad. Las tiradas de ataque en su contra tienen ventaja, y sus propias tiradas de ataque tienen desventaja. Tiene desventaja en las tiradas de salvación de Destreza." },
-  "Inconsciente": { description: "Está incapacitado, no puede moverse ni hablar, y no es consciente de su entorno. Cae derribado si está de pie. Falla automáticamente las tiradas de salvación de Fuerza y Destreza. Los ataques en su contra tienen ventaja. Cualquier ataque que impacte es un golpe crítico si el atacante está a 5 pies de él."}
+  "Asustado": { description: "Tiene desventaja en las pruebas de característica y en las tiradas de ataque mientras la fuente de su miedo esté en su línea de visión. No puede acercarse voluntariamente a la fuente de su miedo.", savingThrow: "wisdom" },
+  "Sujetado": { description: "Su velocidad se convierte en 0, y no puede beneficiarse de ninguna bonificación a su velocidad. Las tiradas de ataque en su contra tienen ventaja, y sus propias tiradas de ataque tienen desventaja. Tiene desventaja en las tiradas de salvación de Destreza.", savingThrow: "strength" },
+  "Inconsciente": { description: "Está incapacitado, no puede moverse ni hablar, y no es consciente de su entorno. Cae derribado si está de pie. Falla automáticamente las tiradas de salvación de Fuerza y Destreza. Los ataques en su contra tienen ventaja. Cualquier ataque que impacte es un golpe crítico si el atacante está a 5 pies de él."},
+  "Daño Venenoso": { description: "Sufre 1d4 de daño de veneno al comienzo de su turno.", ongoingDamage: { dice: "1d4", type: "Veneno" } }
 };
 export type ConditionName = keyof typeof DND_CONDITIONS;
 
@@ -239,14 +240,62 @@ export const CombatInterface = ({ characters, monsters, onBack, isNarratorMode =
     }));
   };
 
+  const getStatModifier = (statValue: number) => Math.floor((statValue - 10) / 2);
+  const rollDice = (diceString: string): number => {
+    const match = diceString.match(/(\d+)d(\d+)([+-]\d+)?/);
+    if (!match) return 0;
+    const numDice = parseInt(match[1]);
+    const numSides = parseInt(match[2]);
+    const modifier = match[3] ? parseInt(match[3]) : 0;
+    let total = 0;
+    for (let i = 0; i < numDice; i++) {
+      total += Math.floor(Math.random() * numSides) + 1;
+    }
+    return total + modifier;
+  };
+
   const nextTurn = () => {
     const activeParticipant = participants[currentTurn];
     if (!activeParticipant) return;
 
+    let participantForNextTurn = { ...activeParticipant };
+
+    // Process ongoing damage at the start of the turn
+    participantForNextTurn.conditions.forEach(condition => {
+      const conditionInfo = DND_CONDITIONS[condition.name as ConditionName];
+      if (conditionInfo && 'ongoingDamage' in conditionInfo) {
+        const damageInfo = conditionInfo.ongoingDamage as { dice: string, type: string };
+        const damage = rollDice(damageInfo.dice);
+        applyDamage(activeParticipant.id, damage);
+        logAction(activeParticipant.id, `sufre ${damage} de daño de ${damageInfo.type} por ${condition.name}.`);
+      }
+    });
+
+    // Process saving throws at the end of the turn
+    participantForNextTurn.conditions.forEach(condition => {
+      const conditionInfo = DND_CONDITIONS[condition.name as ConditionName];
+      if (conditionInfo && 'savingThrow' in conditionInfo) {
+        const statName = conditionInfo.savingThrow as keyof typeof activeParticipant.data.stats;
+        const savingThrowStat = activeParticipant.data.stats[statName];
+        const modifier = getStatModifier(savingThrowStat);
+        const roll = Math.floor(Math.random() * 20) + 1;
+        const dc = 13; // Standard DC for now
+
+        if (roll + modifier >= dc) {
+          logAction(activeParticipant.id, `supera la tirada de salvación contra ${condition.name} (tirada ${roll} + ${modifier} vs DC ${dc}).`);
+          // This will be handled in the final condition update below
+          participantForNextTurn.conditions = participantForNextTurn.conditions.filter(c => c.name !== condition.name);
+        } else {
+          logAction(activeParticipant.id, `falla la tirada de salvación contra ${condition.name} (tirada ${roll} + ${modifier} vs DC ${dc}).`);
+        }
+      }
+    });
+
+
     // Process end-of-turn for the current participant
     let updatedParticipants = participants.map((p, index) => {
         if (index === currentTurn) {
-            let newConditions = p.conditions;
+            let newConditions = participantForNextTurn.conditions;
             // Decrement duration at the end of the affected creature's turn
             newConditions = newConditions.map(c => ({ ...c, duration: c.duration > 0 ? c.duration - 1 : c.duration }))
                                          .filter(c => c.duration !== 0);
