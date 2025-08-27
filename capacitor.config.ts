@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.4b0923ec74b8456da7d91d2becc421ed',
+  appId: 'com.juegodnd.app',
   appName: 'D&D 5e Manager',
   webDir: 'dist',
   server: {

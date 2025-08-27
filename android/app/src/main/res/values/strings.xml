@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">D&amp;D 5e Manager</string>
+    <string name="title_activity_main">D&amp;D 5e Manager</string>
+    <string name="package_name">com.juegodnd.app</string>
+    <string name="custom_url_scheme">com.juegodnd.app</string>
+</resources>
