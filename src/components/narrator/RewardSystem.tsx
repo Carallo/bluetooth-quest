@@ -2,15 +2,22 @@ import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { type Creature } from '@/data/bestiary';
+import { type Character } from '@/data/characters';
 import { items, type Item, getRarityColor } from '@/data/items';
-import { Coins, Gem, Shield, Sword, Wand2, Dices } from 'lucide-react';
+import { Coins, Gem, Shield, Sword, Wand2, Dices, Gift } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 
 interface RewardSystemProps {
   creatures: Creature[];
-  partySize: number;
+  party: Character[];
+  onUpdateParty: (updatedParty: Character[]) => void;
 }
 
+// ... (creatureXP and crTreasure constants remain the same)
 const creatureXP: { [key: string]: number } = {
     '0': 10, '1/8': 25, '1/4': 50, '1/2': 100, '1': 200, '2': 450, '3': 700, '4': 1100, '5': 1800,
     '6': 2300, '7': 2900, '8': 3900, '9': 5000, '10': 5900, '11': 7200, '12': 8400,
@@ -25,6 +32,7 @@ const crTreasure = {
   '17+': { gold: 20000, items: 4, magicChance: 0.75, maxRarity: 'legendary' },
 };
 
+
 type Rarity = Item['rarity'];
 const rarityOrder: Rarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 
@@ -35,8 +43,18 @@ const getCRBucket = (cr: number): keyof typeof crTreasure => {
   return '17+';
 };
 
-export const RewardSystem = ({ creatures, partySize }: RewardSystemProps) => {
-  const [generatedRewards, setGeneratedRewards] = useState<{ xp: number, gold: number, lootItems: Item[], hoardItems: Item[] } | null>(null);
+interface GeneratedRewards {
+    xp: number;
+    gold: number;
+    lootItems: (Item & { distributedTo?: string })[];
+    hoardItems: (Item & { distributedTo?: string })[];
+}
+
+export const RewardSystem = ({ creatures, party, onUpdateParty }: RewardSystemProps) => {
+  const [generatedRewards, setGeneratedRewards] = useState<GeneratedRewards | null>(null);
+  const [selectedCharacter, setSelectedCharacter] = useState('');
+
+  const partySize = party.length;
 
   const totalXP = useMemo(() => {
     return creatures.reduce((acc, c) => acc + (creatureXP[c.challengeRating.toString()] || 0), 0);
@@ -54,21 +72,14 @@ export const RewardSystem = ({ creatures, partySize }: RewardSystemProps) => {
   const generateRewards = () => {
     const bucket = getCRBucket(averageCR);
     const treasureInfo = crTreasure[bucket];
-
-    // 1. Gold Generation
     const gold = Math.floor(treasureInfo.gold * (Math.random() * 0.5 + 0.75));
-
-    // 2. Creature-specific Loot
     const lootItems = creatures.flatMap(creature =>
       creature.lootTable?.filter(loot => Math.random() < loot.dropChance)
         .map(loot => items.find(item => item.id === loot.itemId))
         .filter((item): item is Item => !!item) || []
     );
-
-    // 3. Hoard Treasure (Random Items)
     const hoardItems: Item[] = [];
     const maxRarityIndex = rarityOrder.indexOf(treasureInfo.maxRarity);
-
     for (let i = 0; i < treasureInfo.items; i++) {
       const isMagic = Math.random() < treasureInfo.magicChance;
       const availableItems = items.filter(item => {
@@ -76,14 +87,48 @@ export const RewardSystem = ({ creatures, partySize }: RewardSystemProps) => {
         const categoryMatch = isMagic ? item.category === 'magic' : item.category !== 'magic';
         return categoryMatch && itemRarityIndex <= maxRarityIndex;
       });
-
       if (availableItems.length > 0) {
         const randomItem = availableItems[Math.floor(Math.random() * availableItems.length)];
         hoardItems.push(randomItem);
       }
     }
-
     setGeneratedRewards({ xp: totalXP, gold, lootItems, hoardItems });
+  };
+
+  const handleDistribute = (type: 'gold' | 'item', payload: number | Item) => {
+    if (!selectedCharacter) {
+      toast({ variant: 'destructive', title: 'No character selected' });
+      return;
+    }
+
+    const updatedParty = party.map(p => {
+      if (p.id === selectedCharacter) {
+        const newP = { ...p };
+        if (type === 'gold') {
+          newP.gold = (newP.gold || 0) + (payload as number);
+        } else {
+          newP.inventory = [...(newP.inventory || []), payload as Item];
+        }
+        return newP;
+      }
+      return p;
+    });
+
+    onUpdateParty(updatedParty);
+
+    if (type === 'item') {
+        setGeneratedRewards(prev => {
+            if (!prev) return null;
+            const markAsDistributed = (item: Item) => item.id === (payload as Item).id ? { ...item, distributedTo: selectedCharacter } : item;
+            return {
+                ...prev,
+                lootItems: prev.lootItems.map(markAsDistributed),
+                hoardItems: prev.hoardItems.map(markAsDistributed),
+            };
+        });
+    }
+
+    toast({ title: 'Reward Distributed!', description: `Sent to ${party.find(p=>p.id === selectedCharacter)?.name}` });
   };
 
   const getIcon = (item: Item) => {
@@ -92,6 +137,29 @@ export const RewardSystem = ({ creatures, partySize }: RewardSystemProps) => {
     if (item.category === 'potions') return <Wand2 className="w-5 h-5 mr-3" />;
     return <Gem className="w-5 h-5 mr-3" />;
   };
+
+  const renderItemListItem = (item: Item, index: number, type: 'loot' | 'hoard') => (
+    <li key={`${type}-${index}`} className={`flex items-center p-2 bg-muted/50 rounded ${item.distributedTo ? 'opacity-50' : ''}`}>
+      {getIcon(item)}
+      <span className={getRarityColor(item.rarity)}>{item.name}</span>
+      <Badge variant="outline" className="ml-auto mr-2">{item.rarity}</Badge>
+      {item.distributedTo ? (
+          <Badge variant="secondary">Given to {party.find(p=>p.id === item.distributedTo)?.name || '??'}</Badge>
+      ) : (
+        <Dialog>
+          <DialogTrigger asChild><Button size="sm" variant="ghost"><Gift className="w-4 h-4" /></Button></DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Distribute {item.name}</DialogTitle></DialogHeader>
+            <Select onValueChange={setSelectedCharacter}>
+              <SelectTrigger><SelectValue placeholder="Select Character" /></SelectTrigger>
+              <SelectContent>{party.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+            </Select>
+            <Button onClick={() => handleDistribute('item', item)}>Confirm</Button>
+          </DialogContent>
+        </Dialog>
+      )}
+    </li>
+  );
 
   return (
     <Card>
@@ -119,7 +187,7 @@ export const RewardSystem = ({ creatures, partySize }: RewardSystemProps) => {
         </Button>
 
         {generatedRewards && (
-          <Accordion type="multiple" className="w-full space-y-2">
+          <Accordion type="multiple" defaultValue={['gold']} className="w-full space-y-2">
             <AccordionItem value="gold" className="border-b-0">
                 <Card className="bg-gradient-to-tr from-amber-500/10 to-yellow-400/10">
                     <AccordionTrigger className="p-4">
@@ -127,8 +195,19 @@ export const RewardSystem = ({ creatures, partySize }: RewardSystemProps) => {
                     </AccordionTrigger>
                     <AccordionContent className="px-4 pb-4">
                         <div className="flex items-center gap-4">
-                        <p className="text-2xl font-bold">{generatedRewards.gold} GP</p>
-                        {partySize > 0 && (<p className="text-lg text-muted-foreground">({Math.floor(generatedRewards.gold / partySize)} GP cada uno)</p>)}
+                            <p className="text-2xl font-bold">{generatedRewards.gold} GP</p>
+                            {partySize > 0 && (<p className="text-lg text-muted-foreground">({Math.floor(generatedRewards.gold / partySize)} GP cada uno)</p>)}
+                            <Dialog>
+                                <DialogTrigger asChild><Button size="sm" className="ml-auto">Distribute</Button></DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader><DialogTitle>Distribute Gold</DialogTitle></DialogHeader>
+                                    <Select onValueChange={setSelectedCharacter}>
+                                        <SelectTrigger><SelectValue placeholder="Select Character" /></SelectTrigger>
+                                        <SelectContent>{party.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <Button onClick={() => handleDistribute('gold', generatedRewards.gold)}>Give All Gold</Button>
+                                </DialogContent>
+                            </Dialog>
                         </div>
                     </AccordionContent>
                 </Card>
@@ -141,13 +220,7 @@ export const RewardSystem = ({ creatures, partySize }: RewardSystemProps) => {
                         </AccordionTrigger>
                         <AccordionContent className="px-4 pb-4">
                             <ul className="space-y-2">
-                            {generatedRewards.lootItems.map((item, index) => (
-                                <li key={`loot-${index}`} className="flex items-center p-2 bg-muted/50 rounded">
-                                {getIcon(item)}
-                                <span className={getRarityColor(item.rarity)}>{item.name}</span>
-                                <Badge variant="outline" className="ml-auto">{item.rarity}</Badge>
-                                </li>
-                            ))}
+                                {generatedRewards.lootItems.map((item, index) => renderItemListItem(item, index, 'loot'))}
                             </ul>
                         </AccordionContent>
                     </Card>
@@ -161,13 +234,7 @@ export const RewardSystem = ({ creatures, partySize }: RewardSystemProps) => {
                         </AccordionTrigger>
                         <AccordionContent className="px-4 pb-4">
                             <ul className="space-y-2">
-                            {generatedRewards.hoardItems.map((item, index) => (
-                                <li key={`hoard-${index}`} className="flex items-center p-2 bg-muted/50 rounded">
-                                {getIcon(item)}
-                                <span className={getRarityColor(item.rarity)}>{item.name}</span>
-                                <Badge variant="outline" className="ml-auto">{item.rarity}</Badge>
-                                </li>
-                            ))}
+                                {generatedRewards.hoardItems.map((item, index) => renderItemListItem(item, index, 'hoard'))}
                             </ul>
                         </AccordionContent>
                     </Card>

@@ -43,8 +43,9 @@ export interface Character {
     ring1?: Item;
     ring2?: Item;
     boots?: Item;
-    cloak?: Item;
+    cloak?:Item;
   },
+  attunedItems?: string[];
   spells: string[];
   inventory?: Item[];
   background: string;
