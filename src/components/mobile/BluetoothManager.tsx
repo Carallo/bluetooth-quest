@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
 
 interface BluetoothManagerProps {
-  data?: any;
+  data?: object;
 }
 
 export const BluetoothManager = ({ data }: BluetoothManagerProps) => {
