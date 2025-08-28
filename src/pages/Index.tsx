@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { MainMenu } from "@/components/layout/MainMenu";
 import { NarratorMode } from "@/components/modes/NarratorMode";
 import { PlayerMode } from "@/components/modes/PlayerMode";
@@ -14,6 +15,7 @@ import { type Character } from "@/data/characters";
 type AppMode = 'menu' | 'narrator' | 'player' | 'dice' | 'shop' | 'characters' | 'combat' | 'bluetooth' | 'offline';
 
 const Index = () => {
+  const { t } = useTranslation();
   const [currentMode, setCurrentMode] = useState<AppMode>('menu');
   const { data, saveCharacter, deleteCharacter } = useOfflineData();
 
@@ -47,7 +49,7 @@ const Index = () => {
         return (
           <div className="min-h-screen bg-background p-4">
             <div className="max-w-2xl mx-auto">
-              <h1 className="text-3xl font-bold mb-6">Gestión Bluetooth</h1>
+              <h1 className="text-3xl font-bold mb-6">{t('pages.bluetoothTitle')}</h1>
               <BluetoothManager />
             </div>
           </div>
@@ -56,7 +58,7 @@ const Index = () => {
         return (
           <div className="min-h-screen bg-background p-4">
             <div className="max-w-2xl mx-auto">
-              <h1 className="text-3xl font-bold mb-6">Gestión Offline</h1>
+              <h1 className="text-3xl font-bold mb-6">{t('pages.offlineTitle')}</h1>
               <OfflineManager onBack={handleBackToMenu} />
             </div>
           </div>

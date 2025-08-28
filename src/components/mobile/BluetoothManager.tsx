@@ -5,12 +5,14 @@ import { Badge } from '@/components/ui/badge';
 import { Bluetooth, Search, Wifi, WifiOff, Share, Server, ServerOff } from 'lucide-react';
 import { useBluetooth } from '@/hooks/useBluetooth';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
 
 interface BluetoothManagerProps {
   data?: any;
 }
 
 export const BluetoothManager = ({ data }: BluetoothManagerProps) => {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const {
     isScanning,
@@ -30,11 +32,11 @@ export const BluetoothManager = ({ data }: BluetoothManagerProps) => {
     try {
       await scanForDevices();
       toast({
-        title: "Buscando dispositivos",
-        description: "Escaneando dispositivos Bluetooth cercanos...",
+        title: t('bluetooth.toastScanningTitle'),
+        description: t('bluetooth.toastScanningDescription'),
       });
     } catch (error) {
-      toast({ title: "Error de Escaneo", description: (error as Error).message, variant: "destructive" });
+      toast({ title: t('bluetooth.toastScanErrorTitle'), description: (error as Error).message, variant: "destructive" });
     }
   };
 
@@ -43,11 +45,11 @@ export const BluetoothManager = ({ data }: BluetoothManagerProps) => {
       try {
         await shareDataOverBLE(data);
         toast({
-          title: "Datos Compartidos",
-          description: "Los datos se enviaron correctamente.",
+          title: t('bluetooth.toastShareSuccessTitle'),
+          description: t('bluetooth.toastShareSuccessDescription'),
         });
       } catch (error) {
-        toast({ title: "Error al Compartir", description: (error as Error).message, variant: "destructive" });
+        toast({ title: t('bluetooth.toastShareErrorTitle'), description: (error as Error).message, variant: "destructive" });
       }
     }
   };
@@ -55,18 +57,18 @@ export const BluetoothManager = ({ data }: BluetoothManagerProps) => {
   const handleStartServer = async () => {
     try {
       await startServer();
-      toast({ title: "Servidor Iniciado", description: "El dispositivo ahora es visible para otros." });
+      toast({ title: t('bluetooth.toastServerStartedTitle'), description: t('bluetooth.toastServerStartedDescription') });
     } catch (error) {
-      toast({ title: "Error de Servidor", description: (error as Error).message, variant: "destructive" });
+      toast({ title: t('bluetooth.toastServerErrorTitle'), description: (error as Error).message, variant: "destructive" });
     }
   };
 
   const handleStopServer = async () => {
     try {
       await stopServer();
-      toast({ title: "Servidor Detenido", description: "El dispositivo ya no es visible." });
+      toast({ title: t('bluetooth.toastServerStoppedTitle'), description: t('bluetooth.toastServerStoppedDescription') });
     } catch (error) {
-      toast({ title: "Error de Servidor", description: (error as Error).message, variant: "destructive" });
+      toast({ title: t('bluetooth.toastServerErrorTitle'), description: (error as Error).message, variant: "destructive" });
     }
   };
 
@@ -75,15 +77,15 @@ export const BluetoothManager = ({ data }: BluetoothManagerProps) => {
     <Card className="p-6">
       <div className="flex items-center gap-2 mb-6">
         <Bluetooth className="w-6 h-6 text-primary" />
-        <h2 className="text-2xl font-bold">Bluetooth Manager</h2>
+        <h2 className="text-2xl font-bold">{t('bluetooth.managerTitle')}</h2>
         {isConnected && (
           <Badge variant="default" className="bg-green-500">
-            Conectado
+            {t('bluetooth.connected')}
           </Badge>
         )}
         {isServerRunning && (
           <Badge variant="default" className="bg-blue-500">
-            Servidor Activo
+            {t('bluetooth.serverActive')}
           </Badge>
         )}
       </div>
@@ -94,13 +96,13 @@ export const BluetoothManager = ({ data }: BluetoothManagerProps) => {
           {!isServerRunning && (
             <Button onClick={handleStartServer} variant="outline">
               <Server className="w-4 h-4 mr-2" />
-              Iniciar Servidor
+              {t('bluetooth.startServer')}
             </Button>
           )}
           {isServerRunning && (
             <Button onClick={handleStopServer} variant="destructive">
               <ServerOff className="w-4 h-4 mr-2" />
-              Detener Servidor
+              {t('bluetooth.stopServer')}
             </Button>
           )}
           
@@ -110,13 +112,13 @@ export const BluetoothManager = ({ data }: BluetoothManagerProps) => {
             variant="outline"
           >
             <Search className="w-4 h-4 mr-2" />
-            {isScanning ? 'Buscando...' : 'Buscar Dispositivos'}
+            {isScanning ? t('bluetooth.scanning') : t('bluetooth.scanDevices')}
           </Button>
 
           {data && (
             <Button onClick={handleShare} disabled={!isConnected}>
               <Share className="w-4 h-4 mr-2" />
-              Compartir Datos
+              {t('bluetooth.shareData')}
             </Button>
           )}
         </div>
@@ -136,7 +138,7 @@ export const BluetoothManager = ({ data }: BluetoothManagerProps) => {
                 size="sm"
               >
                 <WifiOff className="w-4 h-4 mr-1" />
-                Desconectar
+                {t('bluetooth.disconnect')}
               </Button>
             </div>
           </Card>
@@ -146,7 +148,7 @@ export const BluetoothManager = ({ data }: BluetoothManagerProps) => {
         {devices.length > 0 && (
           <div className="space-y-2">
             <h3 className="font-medium text-sm text-muted-foreground">
-              Dispositivos encontrados ({devices.length})
+              {t('bluetooth.devicesFound')} ({devices.length})
             </h3>
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {devices.map((device) => (
@@ -159,7 +161,7 @@ export const BluetoothManager = ({ data }: BluetoothManagerProps) => {
                     <div className="flex items-center gap-2">
                       <Bluetooth className="w-4 h-4 text-muted-foreground" />
                       <span className="font-medium">
-                        {device.name || 'Dispositivo desconocido'}
+                        {device.name || t('bluetooth.unknownDevice')}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -169,7 +171,7 @@ export const BluetoothManager = ({ data }: BluetoothManagerProps) => {
                         </Badge>
                       )}
                       <Button size="sm" variant="ghost">
-                        Conectar
+                        {t('bluetooth.connect')}
                       </Button>
                     </div>
                   </div>
@@ -184,7 +186,7 @@ export const BluetoothManager = ({ data }: BluetoothManagerProps) => {
           <div className="text-center py-4">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
             <p className="text-sm text-muted-foreground">
-              Buscando dispositivos Bluetooth...
+              {t('bluetooth.scanningInProgress')}
             </p>
           </div>
         )}

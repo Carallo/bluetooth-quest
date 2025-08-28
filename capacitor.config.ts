@@ -1,4 +1,5 @@
 import type { CapacitorConfig } from '@capacitor/cli';
+import i18n from './src/i18n';
 
 const config: CapacitorConfig = {
   appId: 'com.juegodnd.app',
@@ -14,10 +15,10 @@ const config: CapacitorConfig = {
   plugins: {
     BluetoothLe: {
       displayStrings: {
-        scanning: "Buscando dispositivos...",
-        cancel: "Cancelar",
-        availableDevices: "Dispositivos disponibles",
-        noDeviceFound: "No se encontraron dispositivos"
+        scanning: i18n.t('capacitor.scanning'),
+        cancel: i18n.t('capacitor.cancel'),
+        availableDevices: i18n.t('capacitor.availableDevices'),
+        noDeviceFound: i18n.t('capacitor.noDeviceFound')
       }
     }
   }
